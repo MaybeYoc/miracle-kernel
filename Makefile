@@ -1152,7 +1152,6 @@ package-dir	:= scripts/package
 %pkg: include/config/kernel.release FORCE
 	$(Q)$(MAKE) $(build)=$(package-dir) $@
 
-
 # Brief documentation of the typical targets used
 # ---------------------------------------------------------------------------
 
@@ -1195,18 +1194,9 @@ help:
 	@echo  '  namespacecheck  - Name space analysis on compiled kernel'
 	@echo  '  versioncheck    - Sanity check on version.h usage'
 	@echo  '  includecheck    - Check for duplicate included header files'
-	@echo  '  export_report   - List the usages of all exported symbols'
 	@echo  '  headers_check   - Sanity check on exported headers'
 	@echo  '  headerdep       - Detect inclusion cycles in headers'
 	@echo  '  coccicheck      - Check with Coccinelle'
-	@echo  ''
-	@echo  'Kernel selftest:'
-	@echo  '  kselftest       - Build and run kernel selftest (run as root)'
-	@echo  '                    Build, install, and boot kernel before'
-	@echo  '                    running kselftest on it'
-	@echo  '  kselftest-clean - Remove all generated kselftest files'
-	@echo  '  kselftest-merge - Merge all the config dependencies of kselftest to existing'
-	@echo  '                    .config.'
 	@echo  ''
 	@$(if $(dtstree), \
 		echo 'Devicetree:'; \
@@ -1305,7 +1295,7 @@ tags TAGS cscope gtags: FORCE
 # Scripts to check various things for consistency
 # ---------------------------------------------------------------------------
 
-PHONY += includecheck versioncheck coccicheck namespacecheck export_report
+PHONY += includecheck versioncheck coccicheck namespacecheck
 
 includecheck:
 	find $(srctree)/* $(RCS_FIND_IGNORE) \
@@ -1322,9 +1312,6 @@ coccicheck:
 
 namespacecheck:
 	$(PERL) $(srctree)/scripts/namespace.pl
-
-export_report:
-	$(PERL) $(srctree)/scripts/export_report.pl
 
 PHONY += checkstack kernelrelease kernelversion image_name
 
