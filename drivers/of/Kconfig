@@ -20,4 +20,14 @@ config OF_ALL_DTBS
 	select CRC32
 	select DTC
 
+config OF_FLATTREE
+	bool
+	select DTC
+	select LIBFDT
+	select CRC32
+
+config OF_EARLY_FLATTREE
+	bool
+	select OF_FLATTREE
+
 endif # OF

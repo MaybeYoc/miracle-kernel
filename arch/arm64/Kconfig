@@ -12,6 +12,7 @@ config ARM64
 	select HAVE_GCC_PLUGINS
 	select HAVE_STACKPROTECTOR
 	select OF
+	select OF_EARLY_FLATTREE
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
