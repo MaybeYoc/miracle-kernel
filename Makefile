@@ -528,7 +528,7 @@ export KBUILD_BUILTIN
 
 # Objects we will link into vmlinux / subdirs we need to visit
 init-y		:= init/
-drivers-y	:= 
+drivers-y	:= drivers/
 net-y		:= 
 libs-y		:= lib/
 core-y		:= 

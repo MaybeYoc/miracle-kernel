@@ -131,6 +131,14 @@ config HAVE_RELIABLE_STACKTRACE
 	  Architecture has a save_stack_trace_tsk_reliable() function which
 	  only returns a stack trace if it can guarantee the trace is reliable.
 
+config HAVE_ARCH_COMPILER_H
+	bool
+	help
+	  An architecture can select this if it provides an
+	  asm/compiler.h header that should be included after
+	  linux/compiler-*.h in order to override macro definitions that those
+	  headers generally provide.
+
 source "scripts/gcc-plugins/Kconfig"
 
 endmenu
