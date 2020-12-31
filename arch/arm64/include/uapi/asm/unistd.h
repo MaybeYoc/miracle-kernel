@@ -1,9 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Low-level exception handling code
- *
  * Copyright (C) 2012 ARM Ltd.
- * Authors:	Catalin Marinas <catalin.marinas@arm.com>
- *		Will Deacon <will.deacon@arm.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,21 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <linux/arm-smccc.h>
-#include <linux/init.h>
-#include <linux/linkage.h>
+#define __ARCH_WANT_RENAMEAT
+#define __ARCH_WANT_NEW_STAT
 
-#include <asm/alternative.h>
-#include <asm/assembler.h>
-#include <asm/asm-offsets.h>
-#include <asm/cpufeature.h>
-#include <asm/errno.h>
-#include <asm/esr.h>
-#include <asm/irq.h>
-#include <asm/memory.h>
-#include <asm/mmu.h>
-#include <asm/processor.h>
-#include <asm/ptrace.h>
-#include <asm/thread_info.h>
-#include <asm/asm-uaccess.h>
-#include <asm/unistd.h>
+#include <asm-generic/unistd.h>
