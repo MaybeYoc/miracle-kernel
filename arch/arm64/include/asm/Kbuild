@@ -1,2 +1,1 @@
-generic-y += sizes.h
-generic-y += user.h
+generic-y += test.h

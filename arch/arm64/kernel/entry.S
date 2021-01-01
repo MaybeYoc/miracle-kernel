@@ -17,22 +17,3 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <linux/arm-smccc.h>
-#include <linux/init.h>
-#include <linux/linkage.h>
-
-#include <asm/alternative.h>
-#include <asm/assembler.h>
-#include <asm/asm-offsets.h>
-#include <asm/cpufeature.h>
-#include <asm/errno.h>
-#include <asm/esr.h>
-#include <asm/irq.h>
-#include <asm/memory.h>
-#include <asm/mmu.h>
-#include <asm/processor.h>
-#include <asm/ptrace.h>
-#include <asm/thread_info.h>
-#include <asm/asm-uaccess.h>
-#include <asm/unistd.h>

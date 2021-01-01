@@ -5,16 +5,6 @@
  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
  */
 
-#include <asm-generic/vmlinux.lds.h>
-#include <asm/cache.h>
-#include <asm/kernel-pgtable.h>
-#include <asm/thread_info.h>
-#include <asm/memory.h>
-#include <asm/page.h>
-#include <asm/pgtable.h>
-
-#include "image.h"
-
 /* .exit.text needed in case of alternative patching */
 #define ARM_EXIT_KEEP(x)	x
 #define ARM_EXIT_DISCARD(x)
@@ -37,9 +27,6 @@ SECTIONS
 	 * order of matching.
 	 */
 	/DISCARD/ : {
-		ARM_EXIT_DISCARD(EXIT_TEXT)
-		ARM_EXIT_DISCARD(EXIT_DATA)
-		EXIT_CALL
 		*(.discard)
 		*(.discard.*)
 		*(.interp .dynamic)
@@ -65,5 +52,4 @@ SECTIONS
 		*(.bss*)
 	}
 	_end = .;
-	HEAD_SYMBOLS
 }
