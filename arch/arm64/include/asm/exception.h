@@ -1,11 +1,7 @@
 /*
- * Low-level CPU initialisation
- * Based on arch/arm/kernel/head.S
+ * Based on arch/arm/include/asm/exception.h
  *
- * Copyright (C) 1994-2002 Russell King
- * Copyright (C) 2003-2012 ARM Ltd.
- * Authors:	Catalin Marinas <catalin.marinas@arm.com>
- *		Will Deacon <will.deacon@arm.com>
+ * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,12 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef __ASM_EXCEPTION_H
+#define __ASM_EXCEPTION_H
 
-#include <linux/init.h>
-	__HEAD
-_head:
-	/*
-	 * DO NOT MODIFY. Image header expected by Linux boot-loaders.
-	 */
-	b	start_kernel
-	.long	0
+#define __exception	__attribute__((section(".exception.text")))
+#define __exception_irq_entry	__exception
+
+#endif	/* __ASM_EXCEPTION_H */

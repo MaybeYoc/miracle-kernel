@@ -2,7 +2,7 @@
 #ifndef _ASM_GENERIC_TYPES_H
 #define _ASM_GENERIC_TYPES_H
 
-#include <uapi/asm/bitsperlong.h>
+#include <asm/bitsperlong.h>
 
 #ifndef __ASSEMBLY__
 /*

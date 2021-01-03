@@ -103,6 +103,18 @@
 		KEEP(*(.dtb.init.rodata))					\
 		__dtb_end = .;
 
+#define ENTRY_TEXT							\
+		ALIGN_FUNCTION();					\
+		__entry_text_start = .;					\
+		*(.entry.text)						\
+		__entry_text_end = .;
+
+#define IRQENTRY_TEXT							\
+		ALIGN_FUNCTION();					\
+		__irqentry_text_start = .;				\
+		*(.irqentry.text)					\
+		__irqentry_text_end = .;
+
 /* Section used for early init (in .S files) */
 #define HEAD_TEXT	KEEP(*(.head.text))
 
@@ -117,7 +129,7 @@
 		MEM_DISCARD(init.text*)
 
 #define INIT_TEXT_SECTION(inittext_align)				\
-	. = ALIGN(iniytext_align)							\
+	. = ALIGN(inittext_align);							\
 	.init.text : AT(ADDR(.init.text) - LOAD_OFFSET) {	\
 		_sinittext = .;							\
 		INIT_TEXT								\
@@ -231,14 +243,14 @@
 	}										\
 	. = ALIGN((align));
 
-#define INIT_TASK_DATA(align)				\
-		. = ALGIN(align);					\
-		__start_init_task = .;				\
-		init_thread_union = .;				\
-		init_stack = .;						\
-		KEEP(*(.data..init_task))			\
-		KEEP(*(.data..init_thread_info))	\
-		. = __start_init_task + THREAD_SIZE;	\
+#define INIT_TASK_DATA(align)						\
+		. = ALIGN(align);						\
+		__start_init_task = .;						\
+		init_thread_union = .;						\
+		init_stack = .;							\
+		KEEP(*(.data..init_task))					\
+		KEEP(*(.data..init_thread_info))				\
+		. = __start_init_task + THREAD_SIZE;				\
 		__end_init_task = .;
 
 #define PAGE_ALIGNED_DATA(page_align)			\
@@ -273,6 +285,11 @@
 		KEEP(*(__verbose))                       \
 		__stop___verbose = .;					\
 
+/* RODATA & RO_DATA provided for backward compatibility.
+ * All archs are supposed to use RO_DATA() */
+#define RODATA          RO_DATA_SECTION(4096)
+#define RO_DATA(align)  RO_DATA_SECTION(align)
+
 /*
  * .text section. Map to function alignment to avoid address changes
  * during second ld run in second ld pass when generating System.map
@@ -299,12 +316,12 @@
 	. = ALIGN(PAGE_SIZE);						\
 	__nosave_end = .;
 
-#define RW_DATA_SECTION(cacheline, pageligned, inittask)	\
+#define RW_DATA_SECTION(cacheline, pagealigned, inittask)	\
 	. = ALIGN(PAGE_SIZE);						\
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {		\
 		INIT_TASK_DATA(inittask)			\
 		NOSAVE_DATA							\
-		PAGE_ALIGNED_DATA(pageligned)		\
+		PAGE_ALIGNED_DATA(pagealigned)		\
 		CACHELINE_ALIGNED_DATA(cacheline)		\
 		READ_MOSTLY_DATA(cacheline)				\
 		DATA_DATA								\
@@ -320,6 +337,57 @@
 		KEEP(*(__ex_table))					\
 		__stop___ex_table = .;				\
 	}
+
+/*
+ * DWARF debug sections.
+ * Symbols in the DWARF debugging sections are relative to
+ * the beginning of the section so we begin them at 0.
+ */
+#define DWARF_DEBUG							\
+		/* DWARF 1 */						\
+		.debug          0 : { *(.debug) }			\
+		.line           0 : { *(.line) }			\
+		/* GNU DWARF 1 extensions */				\
+		.debug_srcinfo  0 : { *(.debug_srcinfo) }		\
+		.debug_sfnames  0 : { *(.debug_sfnames) }		\
+		/* DWARF 1.1 and DWARF 2 */				\
+		.debug_aranges  0 : { *(.debug_aranges) }		\
+		.debug_pubnames 0 : { *(.debug_pubnames) }		\
+		/* DWARF 2 */						\
+		.debug_info     0 : { *(.debug_info			\
+				.gnu.linkonce.wi.*) }			\
+		.debug_abbrev   0 : { *(.debug_abbrev) }		\
+		.debug_line     0 : { *(.debug_line) }			\
+		.debug_frame    0 : { *(.debug_frame) }			\
+		.debug_str      0 : { *(.debug_str) }			\
+		.debug_loc      0 : { *(.debug_loc) }			\
+		.debug_macinfo  0 : { *(.debug_macinfo) }		\
+		.debug_pubtypes 0 : { *(.debug_pubtypes) }		\
+		/* DWARF 3 */						\
+		.debug_ranges	0 : { *(.debug_ranges) }		\
+		/* SGI/MIPS DWARF 2 extensions */			\
+		.debug_weaknames 0 : { *(.debug_weaknames) }		\
+		.debug_funcnames 0 : { *(.debug_funcnames) }		\
+		.debug_typenames 0 : { *(.debug_typenames) }		\
+		.debug_varnames  0 : { *(.debug_varnames) }		\
+		/* GNU DWARF 2 extensions */				\
+		.debug_gnu_pubnames 0 : { *(.debug_gnu_pubnames) }	\
+		.debug_gnu_pubtypes 0 : { *(.debug_gnu_pubtypes) }	\
+		/* DWARF 4 */						\
+		.debug_types	0 : { *(.debug_types) }			\
+		/* DWARF 5 */						\
+		.debug_macro	0 : { *(.debug_macro) }			\
+		.debug_addr	0 : { *(.debug_addr) }
+
+		/* Stabs debugging sections.  */
+#define STABS_DEBUG							\
+		.stab 0 : { *(.stab) }					\
+		.stabstr 0 : { *(.stabstr) }				\
+		.stab.excl 0 : { *(.stab.excl) }			\
+		.stab.exclstr 0 : { *(.stab.exclstr) }			\
+		.stab.index 0 : { *(.stab.index) }			\
+		.stab.indexstr 0 : { *(.stab.indexstr) }		\
+		.comment 0 : { *(.comment) }
 
 #define NOTES							\
 	.notes : AT(ADDR(.notes) - LOAD_OFFSET) {	\
@@ -347,7 +415,7 @@
 #define BSS(bss_align)				\
 	. = ALIGN(bss_align);			\
 	.bss : AT(ADDR(.bss) - LOAD_OFFSET) { 	\
-		BSS_FIRST_SECTION					\
+		BSS_FIRST_SECTIONS					\
 		*(.bss..page_aligned)			\
 		*(.dynbss)						\
 		*(BSS_MAIN)						\

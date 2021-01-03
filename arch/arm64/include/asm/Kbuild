@@ -1,1 +1,2 @@
-generic-y += test.h
+# include/asm-generic/test.h => asm/test.h
+# generic-y += test.h
