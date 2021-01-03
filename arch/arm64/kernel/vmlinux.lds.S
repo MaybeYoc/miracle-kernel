@@ -7,10 +7,11 @@
 
 #include <asm-generic/vmlinux.lds.h>
 #include <linux/sizes.h>
+#include <asm/kernel-pgtable.h>
 #include <asm/memory.h>
 #include <asm/cache.h>
 
-//#include "image.h"
+#include "image.h"
 
 /* .exit.text needed in case of alternative patching */
 #define ARM_EXIT_KEEP(x)	x
@@ -75,7 +76,7 @@ SECTIONS
 
 	. = ALIGN(PAGE_SIZE);
 	idmap_pg_dir = .;
-	//. += IDMAP_DIR_SIZE;
+	. += IDMAP_DIR_SIZE;
 
 	swapper_pg_dir = .;
 	. += PAGE_SIZE;
@@ -144,13 +145,13 @@ SECTIONS
 
 	. = ALIGN(PAGE_SIZE);
 	init_pg_dir = .;
-	//. += INIT_DIR_SIZE;
+	. += INIT_DIR_SIZE;
 	init_pg_end = .;
 	_end = .;
 
 	STABS_DEBUG
 	DWARF_DEBUG
-	//HEAD_SYMBOLS
+	HEAD_SYMBOLS
 }
 
 ASSERT(__idmap_text_end - (__idmap_text_start & ~(SZ_4K - 1)) <= SZ_4K,
