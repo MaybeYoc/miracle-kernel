@@ -5,6 +5,8 @@
  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
  */
 
+#include <asm-generic/vmlinux.lds.h>
+
 /* .exit.text needed in case of alternative patching */
 #define ARM_EXIT_KEEP(x)	x
 #define ARM_EXIT_DISCARD(x)

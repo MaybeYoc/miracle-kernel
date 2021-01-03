@@ -53,6 +53,9 @@ config ARCH_MMAP_RND_BITS_MAX
        default 16 if ARM64_16K_PAGES
        default 18
 
+config ARCH_ENABLE_MEMORY_HOTPLUG
+	def_bool y
+
 config SMP
 	def_bool y
 
