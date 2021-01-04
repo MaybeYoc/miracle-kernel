@@ -44,8 +44,8 @@ SECTIONS
 		*(.eh_frame)
 	}
 
-	//	. = KIMAGE_VADDR + TEXT_OFFSET;
-	. = 0x40080000;
+	. = KIMAGE_VADDR + TEXT_OFFSET;
+
 	__init_begin = .;
 	.head.text : {
 		_text = .;
@@ -169,4 +169,4 @@ ASSERT(__idmap_text_end - (__idmap_text_start & ~(SZ_4K - 1)) <= SZ_4K,
 /*
  * If padding is applied before .head.text, virt<->phys conversions will fail.
  */
-//ASSERT(_text == (KIMAGE_VADDR + TEXT_OFFSET), "HEAD is misaligned")
+ASSERT(_text == (KIMAGE_VADDR + TEXT_OFFSET), "HEAD is misaligned")
