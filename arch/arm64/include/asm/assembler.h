@@ -26,6 +26,9 @@
 #include <asm/cpucaps.h>
 #include <asm/asm-offsets.h>
 #include <asm/pgtable-hwdef.h>
+#include <asm/ptrace.h>
+#include <asm/debug-monitors.h>
+#include <asm/sysreg.h>
 #include <asm/thread_info.h>
 
 	.macro save_and_disable_daif, flags
