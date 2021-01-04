@@ -1,8 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Based on arch/arm/kernel/asm-offsets.c
- *
- * Copyright (C) 1995-2003 Russell King
- *               2001-2002 Keith Owens
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,25 +14,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/bitops.h>
-#include <linux/types.h>
-#include <linux/kbuild.h>
-#include <asm/cpufeature.h>
-#include <asm/memory.h>
-struct test_struct {
-	int a;
-	int stack_canary;
-};
+#ifndef __ASM_BYTEORDER_H
+#define __ASM_BYTEORDER_H
 
-#define DMA_FROM_DEVICE 2
-#define DMA_TO_DEVICE 1
+#ifdef __AARCH64EB__
+#include <linux/byteorder/big_endian.h>
+#else
+#include <linux/byteorder/little_endian.h>
+#endif
 
-int main(void)
-{
-	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(ARM64_FTR_SYSVAL,	offsetof(struct arm64_ftr_reg, sys_val));
-	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
-	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
-
-	return 0;
-}
+#endif	/* __ASM_BYTEORDER_H */

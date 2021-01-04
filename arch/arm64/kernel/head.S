@@ -39,8 +39,8 @@
 
 #if (TEXT_OFFSET & 0xfff) != 0
 #error TEXT_OFFSET must be at least 4KB aligned
-#elif (PAGE_OFFSET & 0x1fffff) != 0
-#error PAGE_OFFSET must be at least 2MB aligned
+#elif (VIRTUAL_OFFSET & 0x1fffff) != 0
+#error VIRTUAL_OFFSET must be at least 2MB aligned
 #elif TEXT_OFFSET > 0x1fffff
 #error TEXT_OFFSET must be less than 2MB
 #endif
@@ -54,7 +54,7 @@
  *   x0 = physical address to the FDT blob.
  *
  * This code is mostly position independent so you call this at
- * __pa(PAGE_OFFSET + TEXT_OFFSET).
+ * __pa(VIRTUAL_OFFSET + TEXT_OFFSET).
  *
  * Note that the callee-saved registers are used for storing variables
  * that are useful before the MMU is enabled. The allocations are described
@@ -107,5 +107,5 @@ preserve_boot_args:
 						// MMU off
 
 	mov	x1, #0x20			// 4 x 8 bytes
-	//b	__inval_dcache_area		// tail call
+	b	__inval_dcache_area		// tail call
 ENDPROC(preserve_boot_args)

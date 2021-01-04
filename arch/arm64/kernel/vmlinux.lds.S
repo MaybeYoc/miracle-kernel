@@ -91,6 +91,16 @@ SECTIONS
 		ARM_EXIT_KEEP(EXIT_TEXT)
 	}
 
+	. = ALIGN(4);
+	.altinstructions : {
+		__alt_instructions = .;
+		*(.altinstructions)
+		__alt_instructions_end = .;
+	}
+	.altinstr_replacement : {
+		*(.altinstr_replacement)
+	}
+
 	. = ALIGN(PAGE_SIZE);
 	__inittext_end = .;
 	__initdata_begin = .;

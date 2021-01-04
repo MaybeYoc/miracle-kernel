@@ -23,6 +23,7 @@
 #ifndef __ASM_ASSEMBLER_H
 #define __ASM_ASSEMBLER_H
 
+#include <asm/cpucaps.h>
 #include <asm/asm-offsets.h>
 #include <asm/pgtable-hwdef.h>
 #include <asm/thread_info.h>

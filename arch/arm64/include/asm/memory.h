@@ -177,7 +177,7 @@ extern u64			vabits_user;
 #define __virt_to_phys(x)	__virt_to_phys_nodebug(x)
 #define __phys_addr_symbol(x)	__pa_symbol_nodebug(x)
 
-#define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
+#define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | VIRTUAL_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))
 
 /*
@@ -220,13 +220,13 @@ static inline void *phys_to_virt(phys_addr_t x)
  */
 #define ARCH_PFN_OFFSET		((unsigned long)PHYS_PFN_OFFSET)
 
-#define __virt_to_pgoff(kaddr)	(((u64)(kaddr) & ~PAGE_OFFSET) / PAGE_SIZE * sizeof(struct page))
+#define __virt_to_pgoff(kaddr)	(((u64)(kaddr) & ~VIRTUAL_OFFSET) / PAGE_SIZE * sizeof(struct page))
 #define __page_to_voff(kaddr)	(((u64)(kaddr) & ~VMEMMAP_START) * PAGE_SIZE / sizeof(struct page))
 
 #endif
 
 #define _virt_addr_is_linear(kaddr)	\
-	(__tag_reset((u64)(kaddr)) >= PAGE_OFFSET)
+	(__tag_reset((u64)(kaddr)) >= VIRTUAL_OFFSET)
 #define virt_addr_valid(kaddr)		\
 	(_virt_addr_is_linear(kaddr) && _virt_addr_valid(kaddr))
 
