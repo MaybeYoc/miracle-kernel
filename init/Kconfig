@@ -182,6 +182,16 @@ config KERNEL_UNCOMPRESSED
 
 endchoice
 
+menuconfig EXPERT
+	bool "Configure standard kernel features (expert users)"
+	# Unhide debug options, to make the on-by-default options visible
+	select DEBUG_KERNEL
+	help
+	  This option allows certain base kernel options and settings
+          to be disabled or tweaked. This is for specialized
+          environments which can tolerate a "non-standard" kernel.
+          Only use this if you really know what you are doing.
+
 config DEFAULT_HOSTNAME
 	string "Default hostname"
 	default "(none)"
@@ -190,6 +200,16 @@ config DEFAULT_HOSTNAME
 	  calls sethostname(2). The kernel traditionally uses "(none)" here,
 	  but you may wish to use a different default here to make a minimal
 	  system more usable with less configuration.
+
+config BUG
+	bool "BUG() support" if EXPERT
+	default y
+	help
+          Disabling this option eliminates support for BUG and WARN, reducing
+          the size of your kernel image and potentially quietly ignoring
+          numerous fatal conditions. You should only consider disabling this
+          option for embedded systems with no facilities for reporting errors.
+          Just say Y.
 
 config PRINTK
 	default y
