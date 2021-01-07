@@ -10,8 +10,10 @@ config ARM64
 	select DCACHE_WORD_ACCESS
 	select HAVE_ARCH_JUMP_LABEL
 	select HAVE_ARCH_JUMP_LABEL_RELATIVE
+	select HAVE_ARCH_PREL32_RELOCATIONS
 	select HAVE_GCC_PLUGINS
 	select HAVE_STACKPROTECTOR
+	select HAVE_EFFICIENT_UNALIGNED_ACCESS
 	select OF
 	select OF_EARLY_FLATTREE
 	help
@@ -55,6 +57,9 @@ config ARCH_MMAP_RND_BITS_MAX
        default 18
 
 config ARCH_ENABLE_MEMORY_HOTPLUG
+	def_bool y
+
+config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
 config SMP

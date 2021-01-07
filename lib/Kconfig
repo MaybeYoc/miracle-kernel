@@ -4,7 +4,13 @@
 
 menu "Library routines"
 
+config GENERIC_FIND_FIRST_BIT
+	bool
+
 config ARCH_HAS_FAST_MULTIPLIER
+	bool
+
+config ARCH_HAS_UACCESS_FLUSHCACHE
 	bool
 
 config CRC_CCITT
