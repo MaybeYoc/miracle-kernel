@@ -1,9 +1,4 @@
 
 menu "Memory Management options"
 
-# eventually, we can have this option just 'select SPARSEMEM'
-config MEMORY_HOTPLUG
-	bool "Allow for memory hot-add"
-	depends on ARCH_ENABLE_MEMORY_HOTPLUG
-
 endmenu
