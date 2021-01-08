@@ -1,8 +1,8 @@
 menu "Platform selection"
 
-config ARCH_THUNDER
-	bool "Cavium Inc. Thunder SoC Family"
+config ARCH_VIRT
+	bool "Qemu Virt Family"
 	help
-	  This enables support for Cavium's Thunder Family of SoCs.
+	  This enables support for Qemu Virt Family of SoCs.
 
 endmenu
