@@ -1,8 +1,4 @@
 /*
- * Based on arch/arm/kernel/asm-offsets.c
- *
- * Copyright (C) 1995-2003 Russell King
- *               2001-2002 Keith Owens
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,23 +13,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/kbuild.h>
-#include <linux/dma-direction.h>
-#include <asm/cpufeature.h>
+#ifndef __ASM_SPARSEMEM_H
+#define __ASM_SPARSEMEM_H
 
-#define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
-struct test_struct {
-	int a;
-	int stack_canary;
-};
+#ifdef CONFIG_SPARSEMEM
+#define MAX_PHYSMEM_BITS	CONFIG_ARM64_PA_BITS
+#define SECTION_SIZE_BITS	30
+#endif
 
-
-int main(void)
-{
-	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(ARM64_FTR_SYSVAL,	offsetof(struct arm64_ftr_reg, sys_val));
-	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
-	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
-
-	return 0;
-}
+#endif

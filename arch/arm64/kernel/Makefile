@@ -8,7 +8,7 @@ AFLAGS_head.o		:= -DTEXT_OFFSET=$(TEXT_OFFSET)
 
 # Object file lists.
 obj-y			:= entry.o cpufeature.o alternative.o	\
-			process.o cpuinfo.o
+			process.o cpuinfo.o setup.o
 
 head-y					:= head.o
 extra-y					+= $(head-y) vmlinux.lds

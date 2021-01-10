@@ -1,27 +1,3 @@
-OUTPUT_ARCH(aarch64)
-ENTRY(_text)
-
-SECTIONS
-{
-	. = 0x0;
-	_text = .;
-
-	.text : {
-		*(.text*)
-	}
-
-	. = ALIGN(8);
-	.data : {
-		*(.data*)
-	}
-
-	. = ALIGN(8);
-	.bss : {
-		*(.bss*)
-	}
-}
-
-#if 0
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * ld script to make ARM Linux kernel
@@ -194,5 +170,3 @@ ASSERT(__idmap_text_end - (__idmap_text_start & ~(SZ_4K - 1)) <= SZ_4K,
  * If padding is applied before .head.text, virt<->phys conversions will fail.
  */
 ASSERT(_text == (KIMAGE_VADDR + TEXT_OFFSET), "HEAD is misaligned")
-*/
-#endif
