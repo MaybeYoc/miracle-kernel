@@ -43,6 +43,41 @@ config STATIC_KEYS_SELFTEST
 	help
 	  Boot time self-test of the branch patching code.
 
+config HAVE_64BIT_ALIGNED_ACCESS
+	def_bool 64BIT && !HAVE_EFFICIENT_UNALIGNED_ACCESS
+	help
+	  Some architectures require 64 bit accesses to be 64 bit
+	  aligned, which also requires structs containing 64 bit values
+	  to be 64 bit aligned too. This includes some 32 bit
+	  architectures which can do 64 bit accesses, as well as 64 bit
+	  architectures without unaligned access.
+
+	  This symbol should be selected by an architecture if 64 bit
+	  accesses are required to be 64 bit aligned in this way even
+	  though it is not a 64 bit architecture.
+
+	  See Documentation/unaligned-memory-access.txt for more
+	  information on the topic of unaligned memory accesses.
+
+config HAVE_EFFICIENT_UNALIGNED_ACCESS
+	bool
+	help
+	  Some architectures are unable to perform unaligned accesses
+	  without the use of get_unaligned/put_unaligned. Others are
+	  unable to perform such accesses efficiently (e.g. trap on
+	  unaligned access and require fixing it up in the exception
+	  handler.)
+
+	  This symbol should be selected by an architecture if it can
+	  perform unaligned accesses efficiently to allow different
+	  code paths to be selected for these cases. Some network
+	  drivers, for example, could opt to not fix up alignment
+	  problems with received packets if doing so would not help
+	  much.
+
+	  See Documentation/unaligned-memory-access.txt for more
+	  information on the topic of unaligned memory accesses.
+
 config ARCH_USE_BUILTIN_BSWAP
        bool
        help
@@ -61,6 +96,40 @@ config ARCH_USE_BUILTIN_BSWAP
 	 Any architecture with load-and-swap or store-and-swap
 	 instructions should set this. And it shouldn't hurt to set it
 	 on architectures that don't have such instructions.
+
+config HAVE_ARCH_VMAP_STACK
+	def_bool n
+	help
+	  An arch should select this symbol if it can support kernel stacks
+	  in vmalloc space.  This means:
+
+	  - vmalloc space must be large enough to hold many kernel stacks.
+	    This may rule out many 32-bit architectures.
+
+	  - Stacks in vmalloc space need to work reliably.  For example, if
+	    vmap page tables are created on demand, either this mechanism
+	    needs to work while the stack points to a virtual address with
+	    unpopulated page tables or arch code (switch_to() and switch_mm(),
+	    most likely) needs to ensure that the stack's page table entries
+	    are populated before running on a possibly unpopulated stack.
+
+	  - If the stack overflows into a guard page, something reasonable
+	    should happen.  The definition of "reasonable" is flexible, but
+	    instantly rebooting without logging anything would be unfriendly.
+
+config VMAP_STACK
+	default y
+	bool "Use a virtually-mapped stack"
+	depends on HAVE_ARCH_VMAP_STACK
+	---help---
+	  Enable this if you want the use virtually-mapped kernel stacks
+	  with guard pages.  This causes kernel stack overflows to be
+	  caught immediately rather than causing difficult-to-diagnose
+	  corruption.
+
+	  This is presently incompatible with KASAN because KASAN expects
+	  the stack to map directly to the KASAN shadow map using a formula
+	  that is incorrect if the stack is in vmalloc space.
 
 config HAVE_ARCH_JUMP_LABEL
 	bool

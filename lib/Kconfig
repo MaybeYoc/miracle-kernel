@@ -10,4 +10,16 @@ menu "Library routines"
 config LIBFDT
 	bool
 
+config ARCH_HAS_FAST_MULTIPLIER
+	bool
+
+config ARCH_HAS_UACCESS_FLUSHCACHE
+	bool
+
+#
+# Generic 64-bit atomic support is selected if needed
+#
+config GENERIC_ATOMIC64
+       bool
+
 endmenu

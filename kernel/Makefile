@@ -1,1 +1,1 @@
-obj-y = test_kernel.o
+obj-y = printk.o
