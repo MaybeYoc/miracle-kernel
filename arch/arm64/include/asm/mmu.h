@@ -38,8 +38,8 @@ typedef struct {
  * ASID change and therefore doesn't need to reload the counter using
  * atomic64_read.
  */
-#define ASID(mm)	((mm)->context.id.counter & 0xffff)
-
+//#define ASID(mm)	((mm)->context.id.counter & 0xffff) /* TODO */
+#define ASID(mm)
 static inline bool arm64_kernel_unmapped_at_el0(void)
 {
 	return IS_ENABLED(CONFIG_UNMAP_KERNEL_AT_EL0) &&

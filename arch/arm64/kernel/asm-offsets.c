@@ -20,13 +20,15 @@
 #include <linux/kbuild.h>
 #include <linux/dma-direction.h>
 #include <asm/cpufeature.h>
+#include <asm/smp.h>
 
-#define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
 struct test_struct {
 	int a;
 	int stack_canary;
 };
-
+struct mm_struct {
+	int aa;
+};
 
 int main(void)
 {
@@ -34,6 +36,8 @@ int main(void)
 	DEFINE(ARM64_FTR_SYSVAL,	offsetof(struct arm64_ftr_reg, sys_val));
 	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
 	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
-
+	DEFINE(CPU_BOOT_STACK,	offsetof(struct secondary_data, stack));
+	DEFINE(CPU_BOOT_TASK,		offsetof(struct secondary_data, task));
+	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, aa)); /* TODO test */
 	return 0;
 }

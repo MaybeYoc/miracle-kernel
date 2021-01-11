@@ -10,5 +10,14 @@ bool static_key_initialized __read_mostly;
 
 int start_kernel(void)
 {
-	return 0;
+	u64 aa = 32;
+	u32 bb = 64;
+
+	static_key_initialized = true;
+
+	if (static_key_initialized)
+		bb -= 32;
+	
+	aa += bb;
+	return aa;
 }

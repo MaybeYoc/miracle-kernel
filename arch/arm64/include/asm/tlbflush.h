@@ -23,6 +23,7 @@
 
 //#include <linux/mm_types.h> /* TODO */
 //#include <linux/sched.h>
+#include <asm/pgtable-hwdef.h> /* TODO tmp */
 #include <asm/cputype.h>
 #include <asm/mmu.h>
 

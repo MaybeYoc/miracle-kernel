@@ -1,2 +1,2 @@
 # SPDX-License-Identifier: GPL-2.0
-obj-y := init.o mmu.o cache.o
+obj-y := init.o mmu.o cache.o proc.o context.o
