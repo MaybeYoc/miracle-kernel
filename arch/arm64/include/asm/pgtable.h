@@ -811,7 +811,7 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 
 extern int kern_addr_valid(unsigned long addr);
 
-#include <asm-generic/pgtable.h>
+//#include <asm-generic/pgtable.h> /* TODO */
 
 void pgd_cache_init(void);
 #define pgtable_cache_init	pgd_cache_init

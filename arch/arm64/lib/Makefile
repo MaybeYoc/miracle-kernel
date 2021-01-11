@@ -2,3 +2,18 @@
 lib-y := strcmp.o strncmp.o strchr.o strrchr.o	\
 	strlen.o strnlen.o memcmp.o memchr.o memcpy.o	\
 	memmove.o memset.o
+
+# Tell the compiler to treat all general purpose registers (with the
+# exception of the IP registers, which are already handled by the caller
+# in case of a PLT) as callee-saved, which allows for efficient runtime
+# patching of the bl instruction in the caller with an atomic instruction
+# when supported by the CPU. Result and argument registers are handled
+# correctly, based on the function prototype.
+lib-$(CONFIG_ARM64_LSE_ATOMICS) += atomic_ll_sc.o
+CFLAGS_atomic_ll_sc.o	:= -ffixed-x1 -ffixed-x2        		\
+		   -ffixed-x3 -ffixed-x4 -ffixed-x5 -ffixed-x6		\
+		   -ffixed-x7 -fcall-saved-x8 -fcall-saved-x9		\
+		   -fcall-saved-x10 -fcall-saved-x11 -fcall-saved-x12	\
+		   -fcall-saved-x13 -fcall-saved-x14 -fcall-saved-x15	\
+		   -fcall-saved-x18 -fomit-frame-pointer
+CFLAGS_REMOVE_atomic_ll_sc.o := -pg

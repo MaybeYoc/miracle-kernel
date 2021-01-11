@@ -2,8 +2,7 @@
 #ifndef _LINUX_ELF_H
 #define _LINUX_ELF_H
 
-// #include <asm/elf.h> /* TODO */
-#define ELF_CLASS ELFCLASS64 /* TODO Tmp define */
+#include <asm/elf.h>
 #include <uapi/linux/elf.h>
 
 #ifndef elf_read_implies_exec

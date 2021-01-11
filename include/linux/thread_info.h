@@ -10,7 +10,6 @@
 
 #include <linux/types.h>
 #include <linux/bug.h>
-//#include <linux/restart_block.h> /* TODO */
 
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 /*

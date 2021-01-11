@@ -2,7 +2,7 @@
 #
 # Makefile for some libs needed in the kernel.
 #
-obj-y += bitmap.o find_bit.o
+obj-y += bitmap.o find_bit.o llist.o
 
 # TODO
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o

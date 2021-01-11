@@ -39,7 +39,7 @@
  *                a struct page array
  */
 #define VMEMMAP_SIZE (UL(1) << (VA_BITS - PAGE_SHIFT - 1 + STRUCT_PAGE_MAX_SHIFT))
-
+#define STRUCT_PAGE_MAX_SHIFT 0x1 /* TODO tmp */
 /*
  * PAGE_OFFSET - the virtual address of the start of the linear map (top
  *		 (VA_BITS - 1))
