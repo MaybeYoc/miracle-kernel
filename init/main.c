@@ -7,6 +7,7 @@
 #include <linux/irqflags.h>
 #include <linux/list.h>
 #include <linux/llist.h>
+#include <linux/libfdt.h>
 
 /*
  * Used to generate warnings if static_key manipulation functions are used
