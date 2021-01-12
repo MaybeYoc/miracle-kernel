@@ -78,6 +78,27 @@
 
 
 #ifndef __ASSEMBLY__
+/*
+ * Used for initialization calls..
+ */
+typedef int (*initcall_t)(void);
+typedef void (*exitcall_t)(void);
+
+#ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS
+typedef int initcall_entry_t;
+
+static inline initcall_t initcall_from_entry(initcall_entry_t *entry)
+{
+	return offset_to_ptr(entry);
+}
+#else
+typedef initcall_t initcall_entry_t;
+
+static inline initcall_t initcall_from_entry(initcall_entry_t *entry)
+{
+	return *entry;
+}
+#endif
 
 /*
  * initcalls are now grouped by functionality into separate
@@ -94,9 +115,18 @@
  * and remove that completely, so the initcall sections have to be marked
  * as KEEP() in the linker script.
  */
+#ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS
+#define ___define_initcall(fn, id, __sec)			\
+	__ADDRESSABLE(fn)					\
+	asm(".section	\"" #__sec ".init\", \"a\"	\n"	\
+	"__initcall_" #fn #id ":			\n"	\
+	    ".long	" #fn " - .			\n"	\
+	    ".previous					\n");
+#else
 #define ___define_initcall(fn, id, __sec) \
 	static initcall_t __initcall_##fn##id __used \
 		__attribute__((__section__(#__sec ".init"))) = fn;
+#endif
 
 #define __define_initcall(fn, id) ___define_initcall(fn, id, .initcall##id)
 

@@ -8,7 +8,7 @@ obj-y += bitmap.o find_bit.o llist.o list_sort.o kstrtox.o hexdump.o
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o
 obj-$(CONFIG_GENERIC_HWEIGHT) += hweight.o
 
-lib-y := ctype.o string.o vsprintf.o
+lib-y := ctype.o string.o vsprintf.o int_sqrt.o
 
 libfdt_files = fdt.o fdt_ro.o fdt_wip.o fdt_rw.o fdt_sw.o fdt_strerror.o \
 	       fdt_empty_tree.o

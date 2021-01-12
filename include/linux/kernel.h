@@ -233,43 +233,7 @@
  */
 #define lower_32_bits(n) ((u32)(n))
 
-struct completion;
 struct pt_regs;
-struct user;
-
-#ifdef CONFIG_PREEMPT_VOLUNTARY
-extern int _cond_resched(void);
-# define might_resched() _cond_resched()
-#else
-# define might_resched() do { } while (0)
-#endif
-
-#ifdef CONFIG_DEBUG_ATOMIC_SLEEP
-  void ___might_sleep(const char *file, int line, int preempt_offset);
-  void __might_sleep(const char *file, int line, int preempt_offset);
-/**
- * might_sleep - annotation for functions that can sleep
- *
- * this macro will print a stack trace if it is executed in an atomic
- * context (spinlock, irq-handler, ...).
- *
- * This is a useful debugging help to be able to catch problems early and not
- * be bitten later when the calling function happens to sleep when it is not
- * supposed to.
- */
-# define might_sleep() \
-	do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
-# define sched_annotate_sleep()	(current->task_state_change = 0)
-#else
-  static inline void ___might_sleep(const char *file, int line,
-				   int preempt_offset) { }
-  static inline void __might_sleep(const char *file, int line,
-				   int preempt_offset) { }
-# define might_sleep() do { might_resched(); } while (0)
-# define sched_annotate_sleep() do { } while (0)
-#endif
-
-#define might_sleep_if(cond) do { if (cond) might_sleep(); } while (0)
 
 /**
  * abs - return absolute value of an argument
@@ -313,32 +277,9 @@ static inline u32 reciprocal_scale(u32 val, u32 ep_ro)
 	return (u32)(((u64) val * ep_ro) >> 32);
 }
 
-#if defined(CONFIG_MMU) && \
-	(defined(CONFIG_PROVE_LOCKING) || defined(CONFIG_DEBUG_ATOMIC_SLEEP))
-#define might_fault() __might_fault(__FILE__, __LINE__)
-void __might_fault(const char *file, int line);
-#else
-static inline void might_fault(void) { }
-#endif
-
-extern struct atomic_notifier_head panic_notifier_list;
-extern long (*panic_blink)(int state);
 __printf(1, 2)
 void panic(const char *fmt, ...) __noreturn __cold;
-void nmi_panic(struct pt_regs *regs, const char *msg);
-extern void oops_enter(void);
-extern void oops_exit(void);
-void print_oops_end_marker(void);
-extern int oops_may_print(void);
 void do_exit(long error_code) __noreturn;
-void complete_and_exit(struct completion *, long) __noreturn;
-
-#ifdef CONFIG_ARCH_HAS_REFCOUNT
-void refcount_error_report(struct pt_regs *regs, const char *err);
-#else
-static inline void refcount_error_report(struct pt_regs *regs, const char *err)
-{ }
-#endif
 
 /* Internal, do not use. */
 int __must_check _kstrtoul(const char *s, unsigned int base, unsigned long *res);
@@ -434,40 +375,8 @@ int __must_check kstrtou8(const char *s, unsigned int base, u8 *res);
 int __must_check kstrtos8(const char *s, unsigned int base, s8 *res);
 int __must_check kstrtobool(const char *s, bool *res);
 
-int __must_check kstrtoull_from_user(const char __user *s, size_t count, unsigned int base, unsigned long long *res);
-int __must_check kstrtoll_from_user(const char __user *s, size_t count, unsigned int base, long long *res);
-int __must_check kstrtoul_from_user(const char __user *s, size_t count, unsigned int base, unsigned long *res);
-int __must_check kstrtol_from_user(const char __user *s, size_t count, unsigned int base, long *res);
-int __must_check kstrtouint_from_user(const char __user *s, size_t count, unsigned int base, unsigned int *res);
-int __must_check kstrtoint_from_user(const char __user *s, size_t count, unsigned int base, int *res);
-int __must_check kstrtou16_from_user(const char __user *s, size_t count, unsigned int base, u16 *res);
-int __must_check kstrtos16_from_user(const char __user *s, size_t count, unsigned int base, s16 *res);
-int __must_check kstrtou8_from_user(const char __user *s, size_t count, unsigned int base, u8 *res);
-int __must_check kstrtos8_from_user(const char __user *s, size_t count, unsigned int base, s8 *res);
-int __must_check kstrtobool_from_user(const char __user *s, size_t count, bool *res);
-
-static inline int __must_check kstrtou64_from_user(const char __user *s, size_t count, unsigned int base, u64 *res)
-{
-	return kstrtoull_from_user(s, count, base, res);
-}
-
-static inline int __must_check kstrtos64_from_user(const char __user *s, size_t count, unsigned int base, s64 *res)
-{
-	return kstrtoll_from_user(s, count, base, res);
-}
-
-static inline int __must_check kstrtou32_from_user(const char __user *s, size_t count, unsigned int base, u32 *res)
-{
-	return kstrtouint_from_user(s, count, base, res);
-}
-
-static inline int __must_check kstrtos32_from_user(const char __user *s, size_t count, unsigned int base, s32 *res)
-{
-	return kstrtoint_from_user(s, count, base, res);
-}
-
 /* Obsolete, do not use.  Use kstrto<foo> instead */
-
+/* TODO */
 extern unsigned long simple_strtoul(const char *,char **,unsigned int);
 extern long simple_strtol(const char *,char **,unsigned int);
 extern unsigned long long simple_strtoull(const char *,char **,unsigned int);
@@ -499,7 +408,7 @@ extern __scanf(2, 3)
 int sscanf(const char *, const char *, ...);
 extern __scanf(2, 0)
 int vsscanf(const char *, const char *, va_list);
-
+/* TODO */
 extern int get_option(char **str, int *pint);
 extern char *get_options(const char *str, int nints, int *ints);
 extern unsigned long long memparse(const char *ptr, char **retptr);
@@ -524,19 +433,6 @@ static inline u32 int_sqrt64(u64 x)
 }
 #endif
 
-extern void bust_spinlocks(int yes);
-extern int oops_in_progress;		/* If set, an oops, panic(), BUG() or die() is in progress */
-extern int panic_timeout;
-extern unsigned long panic_print;
-extern int panic_on_oops;
-extern int panic_on_unrecovered_nmi;
-extern int panic_on_io_nmi;
-extern int panic_on_warn;
-extern int sysctl_panic_on_rcu_stall;
-extern int sysctl_panic_on_stackoverflow;
-
-extern bool crash_kexec_post_notifiers;
-
 /*
  * panic_cpu is used for synchronizing panic() and crash_kexec() execution. It
  * holds a CPU number which is executing panic() currently. A value of
@@ -545,15 +441,6 @@ extern bool crash_kexec_post_notifiers;
 extern atomic_t panic_cpu;
 #define PANIC_CPU_INVALID	-1
 
-/*
- * Only to be used by arch init code. If the user over-wrote the default
- * CONFIG_PANIC_TIMEOUT, honor it.
- */
-static inline void set_arch_panic_timeout(int timeout, int arch_default_timeout)
-{
-	if (panic_timeout == arch_default_timeout)
-		panic_timeout = timeout;
-}
 extern const char *print_tainted(void);
 enum lockdep_ok {
 	LOCKDEP_STILL_OK,
@@ -1015,11 +902,6 @@ static inline void ftrace_dump(enum ftrace_dump_mode oops_dump_mode) { }
 			 "pointer type mismatch in container_of()");	\
 	IS_ERR_OR_NULL(__mptr) ? ERR_CAST(__mptr) :			\
 		((type *)(__mptr - offsetof(type, member))); })
-
-/* Rebuild everything on CONFIG_FTRACE_MCOUNT_RECORD */
-#ifdef CONFIG_FTRACE_MCOUNT_RECORD
-# define REBUILD_DUE_TO_FTRACE_MCOUNT_RECORD
-#endif
 
 /* Permissions on a sysfs file: you didn't miss the 0 prefix did you? */
 #define VERIFY_OCTAL_PERMISSIONS(perms)						\

@@ -18,7 +18,11 @@
  */
 
 #define pr_fmt(fmt) "alternatives: " fmt
+#include <linux/kernel.h>
+#include <linux/compiler.h>
 #include <linux/init.h>
+
+
 
 int alternatives_applied;
 

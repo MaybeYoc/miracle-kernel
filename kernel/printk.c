@@ -1,3 +1,4 @@
+#include <linux/compiler.h>
 #include <linux/printk.h>
 
 int console_printk[4] = {

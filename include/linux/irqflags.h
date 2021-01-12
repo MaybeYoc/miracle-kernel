@@ -15,64 +15,7 @@
 #include <linux/typecheck.h>
 #include <asm/irqflags.h>
 
-/* Currently trace_softirqs_on/off is used only by lockdep */
-#ifdef CONFIG_PROVE_LOCKING
-  extern void trace_softirqs_on(unsigned long ip);
-  extern void trace_softirqs_off(unsigned long ip);
-  extern void lockdep_hardirqs_on(unsigned long ip);
-  extern void lockdep_hardirqs_off(unsigned long ip);
-#else
-  static inline void trace_softirqs_on(unsigned long ip) { }
-  static inline void trace_softirqs_off(unsigned long ip) { }
-  static inline void lockdep_hardirqs_on(unsigned long ip) { }
-  static inline void lockdep_hardirqs_off(unsigned long ip) { }
-#endif
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-  extern void trace_hardirqs_on(void);
-  extern void trace_hardirqs_off(void);
-# define trace_hardirq_context(p)	((p)->hardirq_context)
-# define trace_softirq_context(p)	((p)->softirq_context)
-# define trace_hardirqs_enabled(p)	((p)->hardirqs_enabled)
-# define trace_softirqs_enabled(p)	((p)->softirqs_enabled)
-# define trace_hardirq_enter()			\
-do {						\
-	current->hardirq_context++;		\
-} while (0)
-# define trace_hardirq_exit()			\
-do {						\
-	current->hardirq_context--;		\
-} while (0)
-# define lockdep_softirq_enter()		\
-do {						\
-	current->softirq_context++;		\
-} while (0)
-# define lockdep_softirq_exit()			\
-do {						\
-	current->softirq_context--;		\
-} while (0)
-#else
-# define trace_hardirqs_on()		do { } while (0)
-# define trace_hardirqs_off()		do { } while (0)
-# define trace_hardirq_context(p)	0
-# define trace_softirq_context(p)	0
-# define trace_hardirqs_enabled(p)	0
-# define trace_softirqs_enabled(p)	0
-# define trace_hardirq_enter()		do { } while (0)
-# define trace_hardirq_exit()		do { } while (0)
-# define lockdep_softirq_enter()	do { } while (0)
-# define lockdep_softirq_exit()		do { } while (0)
-#endif
-
-#if defined(CONFIG_IRQSOFF_TRACER) || \
-	defined(CONFIG_PREEMPT_TRACER)
- extern void stop_critical_timings(void);
- extern void start_critical_timings(void);
-#else
-# define stop_critical_timings() do { } while (0)
-# define start_critical_timings() do { } while (0)
-#endif
-
+/* TODO */
 /*
  * Wrap the arch provided IRQ routines to provide appropriate checks.
  */
@@ -101,42 +44,6 @@ do {						\
 #define raw_irqs_disabled()		(arch_irqs_disabled())
 #define raw_safe_halt()			arch_safe_halt()
 
-/*
- * The local_irq_*() APIs are equal to the raw_local_irq*()
- * if !TRACE_IRQFLAGS.
- */
-#ifdef CONFIG_TRACE_IRQFLAGS
-#define local_irq_enable() \
-	do { trace_hardirqs_on(); raw_local_irq_enable(); } while (0)
-#define local_irq_disable() \
-	do { raw_local_irq_disable(); trace_hardirqs_off(); } while (0)
-#define local_irq_save(flags)				\
-	do {						\
-		raw_local_irq_save(flags);		\
-		trace_hardirqs_off();			\
-	} while (0)
-
-
-#define local_irq_restore(flags)			\
-	do {						\
-		if (raw_irqs_disabled_flags(flags)) {	\
-			raw_local_irq_restore(flags);	\
-			trace_hardirqs_off();		\
-		} else {				\
-			trace_hardirqs_on();		\
-			raw_local_irq_restore(flags);	\
-		}					\
-	} while (0)
-
-#define safe_halt()				\
-	do {					\
-		trace_hardirqs_on();		\
-		raw_safe_halt();		\
-	} while (0)
-
-
-#else /* !CONFIG_TRACE_IRQFLAGS */
-
 #define local_irq_enable()	do { raw_local_irq_enable(); } while (0)
 #define local_irq_disable()	do { raw_local_irq_disable(); } while (0)
 #define local_irq_save(flags)					\
@@ -146,25 +53,9 @@ do {						\
 #define local_irq_restore(flags) do { raw_local_irq_restore(flags); } while (0)
 #define safe_halt()		do { raw_safe_halt(); } while (0)
 
-#endif /* CONFIG_TRACE_IRQFLAGS */
-
 #define local_save_flags(flags)	raw_local_save_flags(flags)
 
-/*
- * Some architectures don't define arch_irqs_disabled(), so even if either
- * definition would be fine we need to use different ones for the time being
- * to avoid build issues.
- */
-#ifdef CONFIG_TRACE_IRQFLAGS_SUPPORT
-#define irqs_disabled()					\
-	({						\
-		unsigned long _flags;			\
-		raw_local_save_flags(_flags);		\
-		raw_irqs_disabled_flags(_flags);	\
-	})
-#else /* !CONFIG_TRACE_IRQFLAGS_SUPPORT */
 #define irqs_disabled()	raw_irqs_disabled()
-#endif /* CONFIG_TRACE_IRQFLAGS_SUPPORT */
 
 #define irqs_disabled_flags(flags) raw_irqs_disabled_flags(flags)
 
