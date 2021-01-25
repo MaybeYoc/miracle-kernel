@@ -2,5 +2,4 @@
 generic-y += bug.h
 generic-y += div64.h
 generic-y += sizes.h
-generic-y += unaligned.h
 generic-y += user.h
