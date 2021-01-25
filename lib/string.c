@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  *  linux/lib/string.c
  *
@@ -26,9 +25,6 @@
 #include <linux/kernel.h>
 #include <linux/bug.h>
 #include <linux/errno.h>
-
-#include <asm/byteorder.h>
-#include <asm/page.h>
 
 #ifndef __HAVE_ARCH_STRNCASECMP
 /**
@@ -58,6 +54,13 @@ int strncasecmp(const char *s1, const char *s2, size_t len)
 			break;
 	} while (--len);
 	return (int)c1 - (int)c2;
+}
+#endif
+#ifndef __HAVE_ARCH_STRNICMP
+#undef strnicmp
+int strnicmp(const char *s1, const char *s2, size_t len)
+{
+	return strncasecmp(s1, s2, len);
 }
 #endif
 
@@ -126,7 +129,7 @@ char *strncpy(char *dest, const char *src, size_t count)
  * @src: Where to copy the string from
  * @size: size of destination buffer
  *
- * Compatible with ``*BSD``: the result is always a valid
+ * Compatible with *BSD: the result is always a valid
  * NUL-terminated string that fits in the buffer (unless,
  * of course, the buffer size is zero). It does not pad
  * out the result like strncpy() does.
@@ -304,12 +307,12 @@ char *strchrnul(const char *s, int c)
  */
 char *strrchr(const char *s, int c)
 {
-	const char *last = NULL;
-	do {
-		if (*s == (char)c)
-			last = s;
-	} while (*s++);
-	return (char *)last;
+       const char *p = s + strlen(s);
+       do {
+           if (*p == (char)c)
+               return (char *)p;
+       } while (--p >= s);
+       return NULL;
 }
 #endif
 
@@ -521,53 +524,31 @@ bool sysfs_streq(const char *s1, const char *s2)
 }
 
 /**
- * match_string - matches given string in an array
- * @array:	array of strings
- * @n:		number of strings in the array or -1 for NULL terminated arrays
- * @string:	string to match with
+ * strtobool - convert common user inputs into boolean values
+ * @s: input string
+ * @res: result
  *
- * Return:
- * index of a @string in the @array if matches, or %-EINVAL otherwise.
+ * This routine returns 0 iff the first character is one of 'Yy1Nn0'.
+ * Otherwise it will return -EINVAL.  Value pointed to by res is
+ * updated upon finding a match.
  */
-int match_string(const char * const *array, size_t n, const char *string)
+int strtobool(const char *s, bool *res)
 {
-	int index;
-	const char *item;
-
-	for (index = 0; index < n; index++) {
-		item = array[index];
-		if (!item)
-			break;
-		if (!strcmp(item, string))
-			return index;
+	switch (s[0]) {
+	case 'y':
+	case 'Y':
+	case '1':
+		*res = true;
+		break;
+	case 'n':
+	case 'N':
+	case '0':
+		*res = false;
+		break;
+	default:
+		return -EINVAL;
 	}
-
-	return -EINVAL;
-}
-
-/**
- * __sysfs_match_string - matches given string in an array
- * @array: array of strings
- * @n: number of strings in the array or -1 for NULL terminated arrays
- * @str: string to match with
- *
- * Returns index of @str in the @array or -EINVAL, just like match_string().
- * Uses sysfs_streq instead of strcmp for matching.
- */
-int __sysfs_match_string(const char * const *array, size_t n, const char *str)
-{
-	const char *item;
-	int index;
-
-	for (index = 0; index < n; index++) {
-		item = array[index];
-		if (!item)
-			break;
-		if (sysfs_streq(item, str))
-			return index;
-	}
-
-	return -EINVAL;
+	return 0;
 }
 
 #ifndef __HAVE_ARCH_MEMSET
@@ -595,82 +576,14 @@ void *memset(void *s, int c, size_t count)
  * @s: Pointer to the start of the area.
  * @count: The size of the area.
  *
- * Note: usually using memset() is just fine (!), but in cases
- * where clearing out _local_ data at the end of a scope is
- * necessary, memzero_explicit() should be used instead in
- * order to prevent the compiler from optimising away zeroing.
- *
  * memzero_explicit() doesn't need an arch-specific version as
  * it just invokes the one of memset() implicitly.
  */
 void memzero_explicit(void *s, size_t count)
 {
 	memset(s, 0, count);
-	barrier_data(s);
+	OPTIMIZER_HIDE_VAR(s);
 }
-
-#ifndef __HAVE_ARCH_MEMSET16
-/**
- * memset16() - Fill a memory area with a uint16_t
- * @s: Pointer to the start of the area.
- * @v: The value to fill the area with
- * @count: The number of values to store
- *
- * Differs from memset() in that it fills with a uint16_t instead
- * of a byte.  Remember that @count is the number of uint16_ts to
- * store, not the number of bytes.
- */
-void *memset16(uint16_t *s, uint16_t v, size_t count)
-{
-	uint16_t *xs = s;
-
-	while (count--)
-		*xs++ = v;
-	return s;
-}
-#endif
-
-#ifndef __HAVE_ARCH_MEMSET32
-/**
- * memset32() - Fill a memory area with a uint32_t
- * @s: Pointer to the start of the area.
- * @v: The value to fill the area with
- * @count: The number of values to store
- *
- * Differs from memset() in that it fills with a uint32_t instead
- * of a byte.  Remember that @count is the number of uint32_ts to
- * store, not the number of bytes.
- */
-void *memset32(uint32_t *s, uint32_t v, size_t count)
-{
-	uint32_t *xs = s;
-
-	while (count--)
-		*xs++ = v;
-	return s;
-}
-#endif
-
-#ifndef __HAVE_ARCH_MEMSET64
-/**
- * memset64() - Fill a memory area with a uint64_t
- * @s: Pointer to the start of the area.
- * @v: The value to fill the area with
- * @count: The number of values to store
- *
- * Differs from memset() in that it fills with a uint64_t instead
- * of a byte.  Remember that @count is the number of uint64_ts to
- * store, not the number of bytes.
- */
-void *memset64(uint64_t *s, uint64_t v, size_t count)
-{
-	uint64_t *xs = s;
-
-	while (count--)
-		*xs++ = v;
-	return s;
-}
-#endif
 
 #ifndef __HAVE_ARCH_MEMCPY
 /**
@@ -869,7 +782,7 @@ void *memchr_inv(const void *start, int c, size_t bytes)
 
 	value64 = value;
 #if defined(CONFIG_ARCH_HAS_FAST_MULTIPLIER) && BITS_PER_LONG == 64
-	value64 *= 0x0101010101010101ULL;
+	value64 *= 0x0101010101010101;
 #elif defined(CONFIG_ARCH_HAS_FAST_MULTIPLIER)
 	value64 *= 0x01010101;
 	value64 |= value64 << 32;
@@ -901,26 +814,4 @@ void *memchr_inv(const void *start, int c, size_t bytes)
 	}
 
 	return check_bytes8(start, value, bytes % 8);
-}
-
-/**
- * strreplace - Replace all occurrences of character in string.
- * @s: The string to operate on.
- * @old: The character being replaced.
- * @new: The character @old is replaced with.
- *
- * Returns pointer to the nul byte at the end of @s.
- */
-char *strreplace(char *s, char old, char new)
-{
-	for (; *s; ++s)
-		if (*s == old)
-			*s = new;
-	return s;
-}
-
-void fortify_panic(const char *name)
-{
-	pr_emerg("detected buffer overflow in %s\n", name);
-	BUG();
 }

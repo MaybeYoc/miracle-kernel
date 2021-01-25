@@ -39,7 +39,7 @@
  *                a struct page array
  */
 #define VMEMMAP_SIZE (UL(1) << (VA_BITS - PAGE_SHIFT - 1 + STRUCT_PAGE_MAX_SHIFT))
-#define STRUCT_PAGE_MAX_SHIFT 0x1 /* TODO tmp */
+
 /*
  * PAGE_OFFSET - the virtual address of the start of the linear map (top
  *		 (VA_BITS - 1))
@@ -73,8 +73,22 @@
 #define MAX_USER_VA_BITS	VA_BITS
 #endif
 
+/*
+ * Generic and tag-based KASAN require 1/8th and 1/16th of the kernel virtual
+ * address space for the shadow region respectively. They can bloat the stack
+ * significantly, so double the (minimum) stack size when they are in use.
+ */
+#ifdef CONFIG_KASAN
+#define KASAN_SHADOW_SIZE	(UL(1) << (VA_BITS - KASAN_SHADOW_SCALE_SHIFT))
+#ifdef CONFIG_KASAN_EXTRA
+#define KASAN_THREAD_SHIFT	2
+#else
+#define KASAN_THREAD_SHIFT	1
+#endif /* CONFIG_KASAN_EXTRA */
+#else
 #define KASAN_SHADOW_SIZE	(0)
 #define KASAN_THREAD_SHIFT	0
+#endif
 
 #define MIN_THREAD_SHIFT	(14 + KASAN_THREAD_SHIFT)
 
@@ -112,12 +126,21 @@
 /*
  * Alignment of kernel segments (e.g. .text, .data).
  */
+#if defined(CONFIG_DEBUG_ALIGN_RODATA)
+/*
+ *  4 KB granule:   1 level 2 entry
+ * 16 KB granule: 128 level 3 entries, with contiguous bit
+ * 64 KB granule:  32 level 3 entries, with contiguous bit
+ */
+#define SEGMENT_ALIGN			SZ_2M
+#else
 /*
  *  4 KB granule:  16 level 3 entries, with contiguous bit
  * 16 KB granule:   4 level 3 entries, without contiguous bit
  * 64 KB granule:   1 level 3 entry
  */
 #define SEGMENT_ALIGN			SZ_64K
+#endif
 
 /*
  * Memory types available.
@@ -195,9 +218,17 @@ extern u64			vabits_user;
 #define untagged_addr(addr)	\
 	((__typeof__(addr))sign_extend64((u64)(addr), 55))
 
+#ifdef CONFIG_KASAN_SW_TAGS
+#define __tag_shifted(tag)	((u64)(tag) << 56)
+#define __tag_set(addr, tag)	(__typeof__(addr))( \
+		((u64)(addr) & ~__tag_shifted(0xff)) | __tag_shifted(tag))
+#define __tag_reset(addr)	untagged_addr(addr)
+#define __tag_get(addr)		(__u8)((u64)(addr) >> 56)
+#else
 #define __tag_set(addr, tag)	(addr)
 #define __tag_reset(addr)	(addr)
 #define __tag_get(addr)		0
+#endif
 
 /*
  * Physical vs virtual RAM address space conversion.  These are
@@ -224,8 +255,13 @@ extern u64			vabits_user;
 
 #define __pa_symbol_nodebug(x)	__kimg_to_phys((phys_addr_t)(x))
 
+#ifdef CONFIG_DEBUG_VIRTUAL
+extern phys_addr_t __virt_to_phys(unsigned long x);
+extern phys_addr_t __phys_addr_symbol(unsigned long x);
+#else
 #define __virt_to_phys(x)	__virt_to_phys_nodebug(x)
 #define __phys_addr_symbol(x)	__pa_symbol_nodebug(x)
+#endif
 
 #define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))

@@ -31,7 +31,7 @@ extern void __cpu_copy_user_page(void *to, const void *from,
 				 unsigned long user);
 extern void copy_page(void *to, const void *from);
 extern void clear_page(void *to);
-/* TODO arm64/mm/copypage.c */
+
 #define clear_user_page(addr,vaddr,pg)  __cpu_clear_user_page(addr, vaddr)
 #define copy_user_page(to,from,vaddr,pg) __cpu_copy_user_page(to, from, vaddr)
 

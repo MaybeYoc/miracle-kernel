@@ -1,12 +1,5 @@
 #include <linux/types.h>
 #include <linux/sizes.h>
-#include <linux/cache.h>
-#include <linux/kernel.h>
-#include <linux/jump_label.h>
-#include <asm/io.h>
-#include <linux/irqflags.h>
-#include <linux/list.h>
-#include <linux/llist.h>
 #include <linux/libfdt.h>
 
 /*

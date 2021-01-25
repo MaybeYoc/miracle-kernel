@@ -9,9 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/ctype.h>
-#include <linux/errno.h>
 #include <linux/kernel.h>
-#include <asm/unaligned.h>
 
 const char hex_asc[] = "0123456789abcdef";
 const char hex_asc_upper[] = "0123456789ABCDEF";
@@ -39,7 +37,7 @@ int hex_to_bin(char ch)
  * @src: ascii hexadecimal string
  * @count: result length
  *
- * Return 0 on success, -EINVAL in case of bad input.
+ * Return 0 on success, -1 in case of bad input.
  */
 int hex2bin(u8 *dst, const char *src, size_t count)
 {
@@ -48,7 +46,7 @@ int hex2bin(u8 *dst, const char *src, size_t count)
 		int lo = hex_to_bin(*src++);
 
 		if ((hi < 0) || (lo < 0))
-			return -EINVAL;
+			return -1;
 
 		*dst++ = (hi << 4) | lo;
 	}
@@ -93,112 +91,85 @@ char *bin2hex(char *dst, const void *src, size_t count)
  *
  * example output buffer:
  * 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f  @ABCDEFGHIJKLMNO
- *
- * Return:
- * The amount of bytes placed in the buffer without terminating NUL. If the
- * output was truncated, then the return value is the number of bytes
- * (excluding the terminating NUL) which would have been written to the final
- * string if enough space had been available.
  */
-int hex_dump_to_buffer(const void *buf, size_t len, int rowsize, int groupsize,
-		       char *linebuf, size_t linebuflen, bool ascii)
+void hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
+			int groupsize, char *linebuf, size_t linebuflen,
+			bool ascii)
 {
 	const u8 *ptr = buf;
-	int ngroups;
 	u8 ch;
 	int j, lx = 0;
 	int ascii_column;
-	int ret;
 
 	if (rowsize != 16 && rowsize != 32)
 		rowsize = 16;
 
+	if (!len)
+		goto nil;
 	if (len > rowsize)		/* limit to one line at a time */
 		len = rowsize;
-	if (!is_power_of_2(groupsize) || groupsize > 8)
-		groupsize = 1;
 	if ((len % groupsize) != 0)	/* no mixed size output */
 		groupsize = 1;
 
-	ngroups = len / groupsize;
-	ascii_column = rowsize * 2 + rowsize / groupsize + 1;
-
-	if (!linebuflen)
-		goto overflow1;
-
-	if (!len)
-		goto nil;
-
-	if (groupsize == 8) {
+	switch (groupsize) {
+	case 8: {
 		const u64 *ptr8 = buf;
+		int ngroups = len / groupsize;
 
-		for (j = 0; j < ngroups; j++) {
-			ret = snprintf(linebuf + lx, linebuflen - lx,
-				       "%s%16.16llx", j ? " " : "",
-				       get_unaligned(ptr8 + j));
-			if (ret >= linebuflen - lx)
-				goto overflow1;
-			lx += ret;
-		}
-	} else if (groupsize == 4) {
+		for (j = 0; j < ngroups; j++)
+			lx += scnprintf(linebuf + lx, linebuflen - lx,
+					"%s%16.16llx", j ? " " : "",
+					(unsigned long long)*(ptr8 + j));
+		ascii_column = 17 * ngroups + 2;
+		break;
+	}
+
+	case 4: {
 		const u32 *ptr4 = buf;
+		int ngroups = len / groupsize;
 
-		for (j = 0; j < ngroups; j++) {
-			ret = snprintf(linebuf + lx, linebuflen - lx,
-				       "%s%8.8x", j ? " " : "",
-				       get_unaligned(ptr4 + j));
-			if (ret >= linebuflen - lx)
-				goto overflow1;
-			lx += ret;
-		}
-	} else if (groupsize == 2) {
+		for (j = 0; j < ngroups; j++)
+			lx += scnprintf(linebuf + lx, linebuflen - lx,
+					"%s%8.8x", j ? " " : "", *(ptr4 + j));
+		ascii_column = 9 * ngroups + 2;
+		break;
+	}
+
+	case 2: {
 		const u16 *ptr2 = buf;
+		int ngroups = len / groupsize;
 
-		for (j = 0; j < ngroups; j++) {
-			ret = snprintf(linebuf + lx, linebuflen - lx,
-				       "%s%4.4x", j ? " " : "",
-				       get_unaligned(ptr2 + j));
-			if (ret >= linebuflen - lx)
-				goto overflow1;
-			lx += ret;
-		}
-	} else {
-		for (j = 0; j < len; j++) {
-			if (linebuflen < lx + 2)
-				goto overflow2;
+		for (j = 0; j < ngroups; j++)
+			lx += scnprintf(linebuf + lx, linebuflen - lx,
+					"%s%4.4x", j ? " " : "", *(ptr2 + j));
+		ascii_column = 5 * ngroups + 2;
+		break;
+	}
+
+	default:
+		for (j = 0; (j < len) && (lx + 3) <= linebuflen; j++) {
 			ch = ptr[j];
 			linebuf[lx++] = hex_asc_hi(ch);
-			if (linebuflen < lx + 2)
-				goto overflow2;
 			linebuf[lx++] = hex_asc_lo(ch);
-			if (linebuflen < lx + 2)
-				goto overflow2;
 			linebuf[lx++] = ' ';
 		}
 		if (j)
 			lx--;
+
+		ascii_column = 3 * rowsize + 2;
+		break;
 	}
 	if (!ascii)
 		goto nil;
 
-	while (lx < ascii_column) {
-		if (linebuflen < lx + 2)
-			goto overflow2;
+	while (lx < (linebuflen - 1) && lx < (ascii_column - 1))
 		linebuf[lx++] = ' ';
-	}
-	for (j = 0; j < len; j++) {
-		if (linebuflen < lx + 2)
-			goto overflow2;
+	for (j = 0; (j < len) && (lx + 2) < linebuflen; j++) {
 		ch = ptr[j];
 		linebuf[lx++] = (isascii(ch) && isprint(ch)) ? ch : '.';
 	}
 nil:
-	linebuf[lx] = '\0';
-	return lx;
-overflow2:
 	linebuf[lx++] = '\0';
-overflow1:
-	return ascii ? ascii_column + len : (groupsize * 2 + 1) * ngroups - 1;
 }
 
 #ifdef CONFIG_PRINTK
@@ -266,6 +237,7 @@ void print_hex_dump(const char *level, const char *prefix_str, int prefix_type,
 	}
 }
 
+#if !defined(CONFIG_DYNAMIC_DEBUG)
 /**
  * print_hex_dump_bytes - shorthand form of print_hex_dump() with default params
  * @prefix_str: string to prefix each line with;
@@ -284,4 +256,6 @@ void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
 	print_hex_dump(KERN_DEBUG, prefix_str, prefix_type, 16, 1,
 		       buf, len, true);
 }
+EXPORT_SYMBOL(print_hex_dump_bytes);
+#endif /* !defined(CONFIG_DYNAMIC_DEBUG) */
 #endif /* defined(CONFIG_PRINTK) */

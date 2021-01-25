@@ -18,9 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <linux/kbuild.h>
-#include <linux/dma-direction.h>
-#include <asm/cpufeature.h>
-#include <asm/smp.h>
+#include <linux/stddef.h>
 
 struct test_struct {
 	int a;
@@ -33,11 +31,6 @@ struct mm_struct {
 int main(void)
 {
 	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(ARM64_FTR_SYSVAL,	offsetof(struct arm64_ftr_reg, sys_val));
-	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
-	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
-	DEFINE(CPU_BOOT_STACK,	offsetof(struct secondary_data, stack));
-	DEFINE(CPU_BOOT_TASK,		offsetof(struct secondary_data, task));
 	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, aa)); /* TODO test */
 	return 0;
 }

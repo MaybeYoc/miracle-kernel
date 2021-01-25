@@ -5,6 +5,26 @@
  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
  */
 
+OUTPUT_ARCH(aarch64)
+ENTRY(_text)
+SECTIONS
+{
+	.text : {
+		*(.text)
+		*(.text.*)
+	}
+
+	.data : {
+		*(.data)
+		*(.rodata)
+	}
+
+	.bss : {
+		*(.bss)
+	}
+}
+
+#if 0
 #include <asm-generic/vmlinux.lds.h>
 #include <linux/sizes.h>
 #include <asm/kernel-pgtable.h>
@@ -170,3 +190,4 @@ ASSERT(__idmap_text_end - (__idmap_text_start & ~(SZ_4K - 1)) <= SZ_4K,
  * If padding is applied before .head.text, virt<->phys conversions will fail.
  */
 ASSERT(_text == (KIMAGE_VADDR + TEXT_OFFSET), "HEAD is misaligned")
+#endif
