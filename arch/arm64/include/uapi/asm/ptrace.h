@@ -26,6 +26,7 @@
 
 /*
  * PSR bits
+ * PSTATE CurrentEL + SPSel
  */
 #define PSR_MODE_EL0t	0x00000000
 #define PSR_MODE_EL1t	0x00000004

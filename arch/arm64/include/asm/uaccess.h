@@ -23,34 +23,14 @@
  */
 #include <linux/string.h>
 #include <linux/thread_info.h>
+#include <linux/compiler.h>
 
 #include <asm/ptrace.h>
 #include <asm/errno.h>
 #include <asm/memory.h>
-//#include <asm/compiler.h>
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
-
-/*
- * The exception table consists of pairs of addresses: the first is the
- * address of an instruction that is allowed to fault, and the second is
- * the address at which the program should continue.  No registers are
- * modified, so it is entirely up to the continuation code to figure out
- * what to do.
- *
- * All the routines below use bits of fixup code that are out of line
- * with the main instruction path.  This means when everything is well,
- * we don't even have to jump over them.  Further, they do not intrude
- * on our cache or tlb entries.
- */
-
-struct exception_table_entry
-{
-	unsigned long insn, fixup;
-};
-
-extern int fixup_exception(struct pt_regs *regs);
 
 #define KERNEL_DS	(-1UL)
 #define get_ds()	(KERNEL_DS)
@@ -235,7 +215,7 @@ do {									\
 		__put_user((x), __p) :					\
 		-EFAULT;						\
 })
-
+/* TODO lib/copy_to/from_user.c */
 extern unsigned long __must_check __copy_from_user(void *to, const void __user *from, unsigned long n);
 extern unsigned long __must_check __copy_to_user(void __user *to, const void *from, unsigned long n);
 extern unsigned long __must_check __copy_in_user(void __user *to, const void __user *from, unsigned long n);
@@ -273,9 +253,9 @@ static inline unsigned long __must_check clear_user(void __user *to, unsigned lo
 		n = __clear_user(to, n);
 	return n;
 }
-
+/* TODO */
 extern long strncpy_from_user(char *dest, const char __user *src, long count);
-
+/* TODO */
 extern __must_check long strlen_user(const char __user *str);
 extern __must_check long strnlen_user(const char __user *str, long n);
 

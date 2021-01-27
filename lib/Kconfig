@@ -16,6 +16,9 @@ config ARCH_HAS_FAST_MULTIPLIER
 config ARCH_HAS_UACCESS_FLUSHCACHE
 	bool
 
+config GENERIC_FIND_FIRST_BIT
+	bool
+
 #
 # Generic 64-bit atomic support is selected if needed
 #

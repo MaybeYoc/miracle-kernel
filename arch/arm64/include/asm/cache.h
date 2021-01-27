@@ -18,6 +18,8 @@
 
 #include <asm/cachetype.h>
 
+#define __read_mostly __attribute__((__section__(".data..read_mostly")))
+
 #define L1_CACHE_SHIFT		6
 #define L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
 
