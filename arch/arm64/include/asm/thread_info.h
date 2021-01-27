@@ -32,8 +32,8 @@
 
 #ifndef __ASSEMBLY__
 
-struct task_struct;
-struct exec_domain;
+struct task_struct; /* TODO */
+struct exec_domain; /* TODO */
 
 #include <asm/types.h>
 

@@ -3,36 +3,10 @@
 
 #include <linux/compiler.h>
 
-#ifdef CONFIG_GENERIC_BUG
-#define BUGFLAG_WARNING		(1 << 0)
-#define BUGFLAG_TAINT(taint)	(BUGFLAG_WARNING | ((taint) << 8))
-#define BUG_GET_TAINT(bug)	((bug)->flags >> 8)
-#endif
-
 #ifndef __ASSEMBLY__
 #include <linux/kernel.h>
 
 #ifdef CONFIG_BUG
-
-#ifdef CONFIG_GENERIC_BUG
-struct bug_entry {
-#ifndef CONFIG_GENERIC_BUG_RELATIVE_POINTERS
-	unsigned long	bug_addr;
-#else
-	signed int	bug_addr_disp;
-#endif
-#ifdef CONFIG_DEBUG_BUGVERBOSE
-#ifndef CONFIG_GENERIC_BUG_RELATIVE_POINTERS
-	const char	*file;
-#else
-	signed int	file_disp;
-#endif
-	unsigned short	line;
-#endif
-	unsigned short	flags;
-};
-#endif	/* CONFIG_GENERIC_BUG */
-
 /*
  * Don't use BUG() or BUG_ON() unless there's really no way out; one
  * example might be detecting data structure corruption in the middle
