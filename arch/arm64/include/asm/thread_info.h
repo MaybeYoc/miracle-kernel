@@ -22,12 +22,13 @@
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>
+#include <linux/sizes.h>
 
 #ifndef CONFIG_ARM64_64K_PAGES
 #define THREAD_SIZE_ORDER	2
 #endif
 
-#define THREAD_SIZE		16384
+#define THREAD_SIZE		SZ_16K
 #define THREAD_START_SP		(THREAD_SIZE - 16)
 
 #ifndef __ASSEMBLY__
