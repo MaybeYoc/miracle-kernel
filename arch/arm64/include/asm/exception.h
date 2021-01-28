@@ -1,8 +1,6 @@
 /*
- * Based on arch/arm/kernel/asm-offsets.c
+ * Based on arch/arm/include/asm/exception.h
  *
- * Copyright (C) 1995-2003 Russell King
- *               2001-2002 Keith Owens
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,24 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/kbuild.h>
-#include <linux/stddef.h>
-#include <linux/dma-direction.h>
+#ifndef __ASM_EXCEPTION_H
+#define __ASM_EXCEPTION_H
 
-struct test_struct {
-	int a;
-	int stack_canary;
-};
-struct mm_struct {
-	int aa;
-};
+#include <asm/esr.h>
 
-int main(void)
+#include <linux/interrupt.h>
+
+#define __exception	__attribute__((section(".exception.text")))
+#define __exception_irq_entry	__exception
+
+static inline u32 disr_to_esr(u64 disr)
 {
-	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, aa)); /* TODO test */
-	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
-	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);	
+	unsigned int esr = ESR_ELx_EC_SERROR << ESR_ELx_EC_SHIFT;
 
-	return 0;
+	if ((disr & DISR_EL1_IDS) == 0)
+		esr |= (disr & DISR_EL1_ESR_MASK);
+	else
+		esr |= (disr & ESR_ELx_ISS_MASK);
+
+	return esr;
 }
+
+#endif	/* __ASM_EXCEPTION_H */

@@ -1,8 +1,4 @@
 /*
- * Based on arch/arm/kernel/asm-offsets.c
- *
- * Copyright (C) 1995-2003 Russell King
- *               2001-2002 Keith Owens
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,24 +13,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/kbuild.h>
-#include <linux/stddef.h>
-#include <linux/dma-direction.h>
 
-struct test_struct {
-	int a;
-	int stack_canary;
-};
-struct mm_struct {
-	int aa;
-};
+#include <linux/linkage.h>
+#include <linux/const.h>
+#include <asm/assembler.h>
+#include <asm/page.h>
 
-int main(void)
-{
-	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, aa)); /* TODO test */
-	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
-	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);	
+/*
+ * Clear page @dest
+ *
+ * Parameters:
+ *	x0 - dest
+ */
+ENTRY(clear_page)
+	mrs	x1, dczid_el0
+	and	w1, w1, #0xf
+	mov	x2, #4
+	lsl	x1, x2, x1
 
-	return 0;
-}
+1:	dc	zva, x0
+	add	x0, x0, x1
+	tst	x0, #(PAGE_SIZE - 1)
+	b.ne	1b
+	ret
+ENDPROC(clear_page)

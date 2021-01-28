@@ -31,9 +31,17 @@
 #define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
 #define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
 
+#define psb_csync()	asm volatile("hint #17" : : : "memory")
+#define csdb()		asm volatile("hint #20" : : : "memory")
+
+#define spec_bar()	asm volatile("dsb nsh\nisb\n")
+
 #define mb()		dsb(sy)
 #define rmb()		dsb(ld)
 #define wmb()		dsb(st)
+
+#define dma_rmb()	dmb(oshld)
+#define dma_wmb()	dmb(oshst)
 
 #ifndef CONFIG_SMP
 #define smp_mb()	barrier()

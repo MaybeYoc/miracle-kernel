@@ -1,8 +1,4 @@
 /*
- * Based on arch/arm/kernel/asm-offsets.c
- *
- * Copyright (C) 1995-2003 Russell King
- *               2001-2002 Keith Owens
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,24 +13,34 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/kbuild.h>
-#include <linux/stddef.h>
-#include <linux/dma-direction.h>
 
-struct test_struct {
-	int a;
-	int stack_canary;
-};
-struct mm_struct {
-	int aa;
-};
+#include <linux/linkage.h>
+#include <linux/const.h>
+#include <asm/assembler.h>
+#include <asm/page.h>
 
-int main(void)
-{
-	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, aa)); /* TODO test */
-	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
-	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);	
-
-	return 0;
-}
+/*
+ * Copy a page from src to dest (both are page aligned)
+ *
+ * Parameters:
+ *	x0 - dest
+ *	x1 - src
+ */
+ENTRY(copy_page)
+	/* Assume cache line size is 64 bytes. */
+	prfm	pldl1strm, [x1, #64]
+1:	ldp	x2, x3, [x1]
+	ldp	x4, x5, [x1, #16]
+	ldp	x6, x7, [x1, #32]
+	ldp	x8, x9, [x1, #48]
+	add	x1, x1, #64
+	prfm	pldl1strm, [x1, #64]
+	stnp	x2, x3, [x0]
+	stnp	x4, x5, [x0, #16]
+	stnp	x6, x7, [x0, #32]
+	stnp	x8, x9, [x0, #48]
+	add	x0, x0, #64
+	tst	x1, #(PAGE_SIZE - 1)
+	b.ne	1b
+	ret
+ENDPROC(copy_page)

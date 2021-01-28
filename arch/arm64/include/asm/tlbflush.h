@@ -21,13 +21,8 @@
 
 #ifndef __ASSEMBLY__
 
-//#include <linux/sched.h> /* TODO */
+#include <linux/sched.h>
 #include <asm/cputype.h>
-
-extern void __cpu_flush_user_tlb_range(unsigned long, unsigned long, struct vm_area_struct *);
-extern void __cpu_flush_kern_tlb_range(unsigned long, unsigned long);
-
-extern struct cpu_tlb_fns cpu_tlb;
 
 /*
  *	TLB Management

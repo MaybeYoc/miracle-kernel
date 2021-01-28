@@ -102,7 +102,7 @@ void __init early_fixmap_init(void);
 
 extern void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot);
 
-#include <asm-generic/fixmap.h>
+//#include <asm-generic/fixmap.h> /* TODO */
 
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASM_ARM64_FIXMAP_H */

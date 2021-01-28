@@ -215,7 +215,7 @@ do {									\
 		__put_user((x), __p) :					\
 		-EFAULT;						\
 })
-/* TODO lib/copy_to/from_user.c */
+
 extern unsigned long __must_check __copy_from_user(void *to, const void __user *from, unsigned long n);
 extern unsigned long __must_check __copy_to_user(void __user *to, const void *from, unsigned long n);
 extern unsigned long __must_check __copy_in_user(void __user *to, const void __user *from, unsigned long n);
