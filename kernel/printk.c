@@ -21,17 +21,3 @@ int printk(const char *fmt, ...)
 
 	return r;
 }
-
-/* Return log buffer address */
-char *log_buf_addr_get(void)
-{
-	//return log_buf;
-	return NULL;
-}
-
-/* Return log buffer size */
-u32 log_buf_len_get(void)
-{
-	//return log_buf_len;
-	return 0;
-}

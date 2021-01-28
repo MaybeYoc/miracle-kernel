@@ -1,5 +1,6 @@
 # include/asm-generic/test.h => asm/test.h
 generic-y += bug.h
 generic-y += div64.h
+generic-y += preempt.h
 generic-y += sizes.h
 generic-y += user.h

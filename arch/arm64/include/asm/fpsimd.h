@@ -64,7 +64,7 @@ struct fpsimd_partial_state {
 #endif
 
 struct task_struct;
-
+/* TODO kernel/entry-fpsimd.S && kernel/fpsimd.c */
 extern void fpsimd_save_state(struct fpsimd_state *state);
 extern void fpsimd_load_state(struct fpsimd_state *state);
 

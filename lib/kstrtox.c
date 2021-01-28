@@ -17,6 +17,7 @@
 #include <linux/math64.h>
 #include <linux/types.h>
 #include <asm/uaccess.h>
+
 #include "kstrtox.h"
 
 const char *_parse_integer_fixup_radix(const char *s, unsigned int *base)
@@ -309,7 +310,7 @@ int kstrtos8(const char *s, unsigned int base, s8 *res)
 	*res = tmp;
 	return 0;
 }
-#if 0
+
 #define kstrto_from_user(f, g, type)					\
 int f(const char __user *s, size_t count, unsigned int base, type *res)	\
 {									\
@@ -322,7 +323,6 @@ int f(const char __user *s, size_t count, unsigned int base, type *res)	\
 	buf[count] = '\0';						\
 	return g(buf, base, res);					\
 }									\
-EXPORT_SYMBOL(f)
 
 kstrto_from_user(kstrtoull_from_user,	kstrtoull,	unsigned long long);
 kstrto_from_user(kstrtoll_from_user,	kstrtoll,	long long);
@@ -334,4 +334,3 @@ kstrto_from_user(kstrtou16_from_user,	kstrtou16,	u16);
 kstrto_from_user(kstrtos16_from_user,	kstrtos16,	s16);
 kstrto_from_user(kstrtou8_from_user,	kstrtou8,	u8);
 kstrto_from_user(kstrtos8_from_user,	kstrtos8,	s8);
-#endif

@@ -105,7 +105,7 @@ struct task_struct;
 struct notifier_block;
 struct perf_event;
 struct pmu;
-
+/* TODO kernel/hw_breakpoint.c */
 extern int arch_bp_generic_fields(struct arch_hw_breakpoint_ctrl ctrl,
 				  int *gen_len, int *gen_type);
 extern int arch_check_bp_in_kernelspace(struct perf_event *bp);
@@ -129,7 +129,7 @@ static inline void ptrace_hw_copy_thread(struct task_struct *task)
 {
 }
 #endif
-
+/* TODO linux/perf_event.h */
 extern struct pmu perf_ops_bp;
 
 #endif	/* __KERNEL__ */

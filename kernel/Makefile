@@ -1,1 +1,2 @@
-obj-y = printk.o panic.o
+obj-y := printk.o panic.o exit.o
+obj-y += locking/

@@ -59,6 +59,7 @@ SECTIONS
 		IRQENTRY_TEXT
 		ENTRY_TEXT
 		TEXT_TEXT
+		LOCK_TEXT
 		IDMAP_TEXT
 		*(.fixup)
 		*(.gnu.warning)

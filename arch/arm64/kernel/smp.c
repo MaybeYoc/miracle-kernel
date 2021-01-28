@@ -1,8 +1,7 @@
 /*
- * Based on arch/arm/kernel/process.c
+ * SMP initialisation and IPI support
+ * Based on arch/arm/kernel/smp.c
  *
- * Original Copyright (C) 1995  Linus Torvalds
- * Copyright (C) 1996-2000 Russell King - Converted to ARM.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,15 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdarg.h>
-
+#include <linux/smp.h>
+#include <linux/percpu.h>
 /*
- * Called from setup_new_exec() after (COMPAT_)SET_PERSONALITY.
+ * as from 2.5, kernels no longer have an init_tasks structure
+ * so we need some other way of telling a new secondary core
+ * where to place its SVC stack
  */
-void arch_setup_new_exec(void)
-{}
-
-unsigned long get_wchan(struct task_struct *p)
-{
-	return 0;
-}
+DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
+struct secondary_data secondary_data;

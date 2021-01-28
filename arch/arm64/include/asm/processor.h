@@ -56,7 +56,7 @@ struct debug_info {
 	/* Hardware breakpoints pinned to this task. */
 	struct perf_event	*hbp_break[ARM_MAX_BRP];
 	struct perf_event	*hbp_watch[ARM_MAX_WRP];
-};
+}; /* TODO linux/perf_event.h */
 
 struct cpu_context {
 	unsigned long x19;
@@ -128,9 +128,14 @@ extern void release_thread(struct task_struct *);
 
 unsigned long get_wchan(struct task_struct *p);
 
-#define cpu_relax()			barrier()
+static inline void cpu_relax(void)
+{
+	asm volatile("yield" ::: "memory");
+}
+
 #define cpu_relax_lowlatency()                cpu_relax()
 
+/* TODO asm-generic/switch_to.h */
 /* Thread switching */
 extern struct task_struct *cpu_switch_to(struct task_struct *prev,
 					 struct task_struct *next);

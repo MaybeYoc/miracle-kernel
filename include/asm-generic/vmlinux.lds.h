@@ -103,6 +103,14 @@
 		KEEP(*(.dtb.init.rodata))					\
 		__dtb_end = .;
 
+/* spinlock.text is aling to function alignment to secure we have same
+ * address even at second ld pass when generating System.map */
+#define LOCK_TEXT							\
+		ALIGN_FUNCTION();					\
+		__lock_text_start = .;					\
+		*(.spinlock.text)					\
+		__lock_text_end = .;
+
 #define ENTRY_TEXT							\
 		ALIGN_FUNCTION();					\
 		__entry_text_start = .;					\

@@ -4,6 +4,7 @@
 #define _LINUX_INTERRUPT_H
 
 /* TODO */
+typedef irqreturn_t (*irq_handler_t)(int, void *);
 /*
  * We want to know which function is an entrypoint of a hardirq or a softirq.
  */
