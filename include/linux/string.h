@@ -8,9 +8,6 @@
 #include <stdarg.h>
 #include <uapi/linux/string.h>
 
-extern char *strndup_user(const char __user *, long); /* TODO mm/util.c */
-extern void *memdup_user(const void __user *, size_t); /* TODO mm/util.c */
-
 /*
  * Include machine specific inline routines
  */
@@ -115,24 +112,8 @@ extern void * memchr(const void *,int,__kernel_size_t);
 #endif
 void *memchr_inv(const void *s, int c, size_t n);
 
-extern char *kstrdup(const char *s, gfp_t gfp); /* TODO mm/util.c */
-extern char *kstrndup(const char *s, size_t len, gfp_t gfp); /* TODO mm/util.c */
-extern void *kmemdup(const void *src, size_t len, gfp_t gfp); /* TODO mm/util.c */
-
-extern char **argv_split(gfp_t gfp, const char *str, int *argcp); /* TODO lib/argv_split.c */
-extern void argv_free(char **argv); /* TODO lib/argv_split.c */
-
 extern bool sysfs_streq(const char *s1, const char *s2);
 extern int strtobool(const char *s, bool *res);
-
-#ifdef CONFIG_BINARY_PRINTF /* TODO */
-int vbin_printf(u32 *bin_buf, size_t size, const char *fmt, va_list args);
-int bstr_printf(char *buf, size_t size, const char *fmt, const u32 *bin_buf);
-int bprintf(u32 *bin_buf, size_t size, const char *fmt, ...) __printf(3, 4);
-#endif
-
-extern ssize_t memory_read_from_buffer(void *to, size_t count, loff_t *ppos,
-				       const void *from, size_t available); /* TODO fs/libfs.c */
 
 /**
  * strstarts - does @str start with @prefix?
@@ -144,7 +125,7 @@ static inline bool strstarts(const char *str, const char *prefix)
 	return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 
-size_t memweight(const void *ptr, size_t bytes); /* TODO lib/memweight.c */
+size_t memweight(const void *ptr, size_t bytes);
 void memzero_explicit(void *s, size_t count);
 
 /**

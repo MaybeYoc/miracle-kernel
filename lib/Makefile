@@ -3,7 +3,8 @@
 # Makefile for some libs needed in the kernel.
 #
 obj-y += bitmap.o find_last_bit.o find_next_bit.o llist.o  \
-			list_sort.o kstrtox.o hexdump.o div64.o string_helpers.o
+		list_sort.o kstrtox.o hexdump.o div64.o string_helpers.o	\
+		memweight.o
 
 # TODO
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o
