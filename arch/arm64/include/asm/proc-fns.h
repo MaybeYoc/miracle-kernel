@@ -1,7 +1,8 @@
 /*
- * Based on arch/arm/include/asm/page.h
+ * Based on arch/arm/include/asm/proc-fns.h
  *
- * Copyright (C) 1995-2003 Russell King
+ * Copyright (C) 1997-1999 Russell King
+ * Copyright (C) 2000 Deep Blue Solutions Ltd
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -16,30 +17,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __ASM_PAGE_H
-#define __ASM_PAGE_H
+#ifndef __ASM_PROCFNS_H
+#define __ASM_PROCFNS_H
 
-#include <asm/page-def.h>
-
+#ifdef __KERNEL__
 #ifndef __ASSEMBLY__
 
-#include <asm/pgtable-types.h>
+#include <asm/page.h>
 
-extern void __cpu_clear_user_page(void *p, unsigned long user);
-extern void __cpu_copy_user_page(void *to, const void *from,
-				 unsigned long user);
-extern void copy_page(void *to, const void *from);
-extern void clear_page(void *to);
+struct mm_struct;
+struct cpu_suspend_ctx;
 
-#define clear_user_page(addr,vaddr,pg)  __cpu_clear_user_page(addr, vaddr)
-#define copy_user_page(to,from,vaddr,pg) __cpu_copy_user_page(to, from, vaddr)
-
-typedef struct page *pgtable_t;
+extern void cpu_do_idle(void);
+extern void cpu_do_switch_mm(unsigned long pgd_phys, struct mm_struct *mm);
+extern void cpu_do_suspend(struct cpu_suspend_ctx *ptr);
+extern u64 cpu_do_resume(phys_addr_t ptr, u64 idmap_ttbr);
 
 #include <asm/memory.h>
 
-#endif /* !__ASSEMBLY__ */
-
-#include <asm-generic/getorder.h>
-
-#endif
+#endif /* __ASSEMBLY__ */
+#endif /* __KERNEL__ */
+#endif /* __ASM_PROCFNS_H */

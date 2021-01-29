@@ -65,6 +65,8 @@ struct secondary_data {
 	long status;
 };
 
+extern struct secondary_data secondary_data;
+
 static inline void cpu_park_loop(void)
 {
 	for (;;) {

@@ -19,8 +19,7 @@
 #ifndef __ASM_KERNEL_PGTABLE_H
 #define __ASM_KERNEL_PGTABLE_H
 
-#include <asm/pgtable.h>
-#include <asm/sparsemem.h>
+#include <asm/pgtable-hwdef.h>
 
 /*
  * The linear mapping and the start of memory are both 2M aligned (per
@@ -70,11 +69,7 @@
  * address is just pushed over a boundary and the start address isn't).
  */
 
-#ifdef CONFIG_RANDOMIZE_BASE
-#define EARLY_KASLR	(1)
-#else
 #define EARLY_KASLR	(0)
-#endif
 
 #define EARLY_ENTRIES(vstart, vend, shift) (((vend) >> (shift)) \
 					- ((vstart) >> (shift)) + 1 + EARLY_KASLR)

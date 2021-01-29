@@ -17,18 +17,17 @@
  */
 
 #include <stdarg.h>
-//#include <linux/module.h>	/* for KSYM_SYMBOL_LEN */
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/kernel.h>
-//#include <linux/kallsyms.h>
+#include <linux/ioport.h>
+#include <linux/dcache.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
 #include <linux/math64.h>
+#include <linux/net.h>
 #include <linux/uaccess.h>
-//#include <linux/ioport.h>
-//#include <linux/dcache.h>
-//#include <linux/cred.h>
-//#include <net/addrconf.h>
 
 #include <asm/page.h>		/* for PAGE_SIZE */
 #include <asm/sections.h>	/* for dereference_function_descriptor() */
@@ -565,7 +564,7 @@ char *dentry_name(char *buf, char *end, const struct dentry *d, struct printf_sp
 			depth = 1;
 	}
 
-	rcu_read_lock();
+	//rcu_read_lock();  /* TODO */
 	for (i = 0; i < depth; i++, d = p) {
 		p = ACCESS_ONCE(d->d_parent);
 		array[i] = ACCESS_ONCE(d->d_name.name);
@@ -588,7 +587,7 @@ char *dentry_name(char *buf, char *end, const struct dentry *d, struct printf_sp
 		if (buf < end)
 			*buf = c;
 	}
-	rcu_read_unlock();
+	//rcu_read_unlock(); /* TODO */
 	if (n < spec.field_width) {
 		/* we want to pad the sucker */
 		unsigned spaces = spec.field_width - n;
@@ -610,30 +609,16 @@ char *symbol_string(char *buf, char *end, void *ptr,
 		    struct printf_spec spec, const char *fmt)
 {
 	unsigned long value;
-#ifdef CONFIG_KALLSYMS
-	char sym[KSYM_SYMBOL_LEN];
-#endif
 
 	if (fmt[1] == 'R')
 		ptr = __builtin_extract_return_addr(ptr);
 	value = (unsigned long)ptr;
 
-#ifdef CONFIG_KALLSYMS
-	if (*fmt == 'B')
-		sprint_backtrace(sym, value);
-	else if (*fmt != 'f' && *fmt != 's')
-		sprint_symbol(sym, value);
-	else
-		sprint_symbol_no_offset(sym, value);
-
-	return string(buf, end, sym, spec);
-#else
 	spec.field_width = 2 * sizeof(void *);
 	spec.flags |= SPECIAL | SMALL | ZEROPAD;
 	spec.base = 16;
 
 	return number(buf, end, value, spec);
-#endif
 }
 
 static noinline_for_stack
@@ -879,6 +864,7 @@ char *ip4_string(char *p, const u8 *addr, const char *fmt)
 static noinline_for_stack
 char *ip6_compressed_string(char *p, const char *addr)
 {
+#if 0 /* TODO */
 	int i, j, range;
 	unsigned char zerolength[8];
 	int longest = 1;
@@ -957,6 +943,9 @@ char *ip6_compressed_string(char *p, const char *addr)
 	*p = '\0';
 
 	return p;
+#else
+	return p;
+#endif
 }
 
 static noinline_for_stack
@@ -1147,8 +1136,12 @@ char *escaped_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
 
 	len = spec.field_width < 0 ? 1 : spec.field_width;
 
-	/* Ignore the error. We print as many characters as we can */
-	string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
+	/*
+	 * string_escape_mem() writes as many characters as it can to
+	 * the given buffer, and returns the total size of the output
+	 * had the buffer been big enough.
+	 */
+	buf += string_escape_mem(addr, len, buf, buf < end ? end - buf : 0, flags, NULL);
 
 	return buf;
 }
@@ -1236,8 +1229,9 @@ char *address_val(char *buf, char *end, const void *addr,
 	return number(buf, end, num, spec);
 }
 
+#if 0 /* TODO kptr_restrict */
 int kptr_restrict __read_mostly;
-
+#endif
 /*
  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
  * by an extra set of alphanumeric characters that are extended format
@@ -1399,6 +1393,7 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			va_end(va);
 			return buf;
 		}
+#if 0 /* TODO kptr_restrict */
 	case 'K':
 		/*
 		 * %pK cannot be used in IRQ context because its test
@@ -1440,7 +1435,7 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			break;
 		}
 		break;
-
+#endif
 	case 'N':
 		switch (fmt[1]) {
 		case 'F':
@@ -2109,7 +2104,6 @@ do {									\
 	return (u32 *)(PTR_ALIGN(str, sizeof(u32))) - bin_buf;
 #undef save_arg
 }
-EXPORT_SYMBOL_GPL(vbin_printf);
 
 /**
  * bstr_printf - Format a string from binary arguments and place it in a buffer
@@ -2288,7 +2282,6 @@ int bstr_printf(char *buf, size_t size, const char *fmt, const u32 *bin_buf)
 	/* the trailing null byte doesn't count towards the total */
 	return str - buf;
 }
-EXPORT_SYMBOL_GPL(bstr_printf);
 
 /**
  * bprintf - Parse a format string and place args' binary value in a buffer
@@ -2311,7 +2304,6 @@ int bprintf(u32 *bin_buf, size_t size, const char *fmt, ...)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(bprintf);
 
 #endif /* CONFIG_BINARY_PRINTF */
 

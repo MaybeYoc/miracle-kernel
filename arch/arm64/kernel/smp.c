@@ -26,3 +26,12 @@
  */
 DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
 struct secondary_data secondary_data;
+
+/*
+ * This is the secondary CPU boot entry.  We're using this CPUs
+ * idle thread stack, but a set of temporary page tables.
+ */
+asmlinkage notrace void secondary_start_kernel(void)
+{
+
+}

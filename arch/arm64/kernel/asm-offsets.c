@@ -19,22 +19,23 @@
  */
 #include <linux/kbuild.h>
 #include <linux/stddef.h>
+#include <linux/mm_types.h>
 #include <linux/dma-direction.h>
+#include <linux/smp.h>
 
 struct test_struct {
 	int a;
 	int stack_canary;
 };
-struct mm_struct {
-	int aa;
-};
 
 int main(void)
 {
 	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, aa)); /* TODO test */
+	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, task_size));
 	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
 	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);	
+	DEFINE(CPU_BOOT_STACK,	offsetof(struct secondary_data, stack));
+	DEFINE(CPU_BOOT_TASK,		offsetof(struct secondary_data, task));
 
 	return 0;
 }

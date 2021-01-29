@@ -128,6 +128,12 @@ static inline bool strstarts(const char *str, const char *prefix)
 size_t memweight(const void *ptr, size_t bytes);
 void memzero_explicit(void *s, size_t count);
 
+#ifdef CONFIG_BINARY_PRINTF
+int vbin_printf(u32 *bin_buf, size_t size, const char *fmt, va_list args);
+int bstr_printf(char *buf, size_t size, const char *fmt, const u32 *bin_buf);
+int bprintf(u32 *bin_buf, size_t size, const char *fmt, ...) __printf(3, 4);
+#endif
+
 /**
  * kbasename - return the last part of a pathname.
  *

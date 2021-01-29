@@ -52,13 +52,7 @@
 	(UL(1) << VA_BITS) + 1)
 #define PAGE_OFFSET		(UL(0xffffffffffffffff) - \
 	(UL(1) << (VA_BITS - 1)) + 1)
-#define KIMAGE_VADDR		(MODULES_END)
-#define BPF_JIT_REGION_START	(VA_START + KASAN_SHADOW_SIZE)
-#define BPF_JIT_REGION_SIZE	(SZ_128M)
-#define BPF_JIT_REGION_END	(BPF_JIT_REGION_START + BPF_JIT_REGION_SIZE)
-#define MODULES_END		(MODULES_VADDR + MODULES_VSIZE)
-#define MODULES_VADDR		(BPF_JIT_REGION_END)
-#define MODULES_VSIZE		(SZ_128M)
+#define KIMAGE_VADDR		(VA_START)
 #define VMEMMAP_START		(PAGE_OFFSET - VMEMMAP_SIZE)
 #define PCI_IO_END		(VMEMMAP_START - SZ_2M)
 #define PCI_IO_START		(PCI_IO_END - PCI_IO_SIZE)
@@ -73,24 +67,7 @@
 #define MAX_USER_VA_BITS	VA_BITS
 #endif
 
-/*
- * Generic and tag-based KASAN require 1/8th and 1/16th of the kernel virtual
- * address space for the shadow region respectively. They can bloat the stack
- * significantly, so double the (minimum) stack size when they are in use.
- */
-#ifdef CONFIG_KASAN
-#define KASAN_SHADOW_SIZE	(UL(1) << (VA_BITS - KASAN_SHADOW_SCALE_SHIFT))
-#ifdef CONFIG_KASAN_EXTRA
-#define KASAN_THREAD_SHIFT	2
-#else
-#define KASAN_THREAD_SHIFT	1
-#endif /* CONFIG_KASAN_EXTRA */
-#else
-#define KASAN_SHADOW_SIZE	(0)
-#define KASAN_THREAD_SHIFT	0
-#endif
-
-#define MIN_THREAD_SHIFT	(14 + KASAN_THREAD_SHIFT)
+#define MIN_THREAD_SHIFT	(14)
 
 /*
  * VMAP'd stacks are allocated at page granularity, so we must ensure that such
@@ -126,21 +103,12 @@
 /*
  * Alignment of kernel segments (e.g. .text, .data).
  */
-#if defined(CONFIG_DEBUG_ALIGN_RODATA)
-/*
- *  4 KB granule:   1 level 2 entry
- * 16 KB granule: 128 level 3 entries, with contiguous bit
- * 64 KB granule:  32 level 3 entries, with contiguous bit
- */
-#define SEGMENT_ALIGN			SZ_2M
-#else
 /*
  *  4 KB granule:  16 level 3 entries, with contiguous bit
  * 16 KB granule:   4 level 3 entries, without contiguous bit
  * 64 KB granule:   1 level 3 entry
  */
 #define SEGMENT_ALIGN			SZ_64K
-#endif
 
 /*
  * Memory types available.
@@ -186,11 +154,6 @@ extern u64			kimage_vaddr;
 /* the offset between the kernel virtual and physical mappings */
 extern u64			kimage_voffset;
 
-static inline unsigned long kaslr_offset(void)
-{
-	return kimage_vaddr - KIMAGE_VADDR;
-}
-
 /* the actual size of a user virtual address */
 extern u64			vabits_user;
 
@@ -209,26 +172,6 @@ extern u64			vabits_user;
  * of RAM in the mem_map as well.
  */
 #define PHYS_PFN_OFFSET	(PHYS_OFFSET >> PAGE_SHIFT)
-
-/*
- * When dealing with data aborts, watchpoints, or instruction traps we may end
- * up with a tagged userland pointer. Clear the tag to get a sane pointer to
- * pass on to access_ok(), for instance.
- */
-#define untagged_addr(addr)	\
-	((__typeof__(addr))sign_extend64((u64)(addr), 55))
-
-#ifdef CONFIG_KASAN_SW_TAGS
-#define __tag_shifted(tag)	((u64)(tag) << 56)
-#define __tag_set(addr, tag)	(__typeof__(addr))( \
-		((u64)(addr) & ~__tag_shifted(0xff)) | __tag_shifted(tag))
-#define __tag_reset(addr)	untagged_addr(addr)
-#define __tag_get(addr)		(__u8)((u64)(addr) >> 56)
-#else
-#define __tag_set(addr, tag)	(addr)
-#define __tag_reset(addr)	(addr)
-#define __tag_get(addr)		0
-#endif
 
 /*
  * Physical vs virtual RAM address space conversion.  These are
@@ -255,39 +198,11 @@ extern u64			vabits_user;
 
 #define __pa_symbol_nodebug(x)	__kimg_to_phys((phys_addr_t)(x))
 
-#ifdef CONFIG_DEBUG_VIRTUAL
-extern phys_addr_t __virt_to_phys(unsigned long x);
-extern phys_addr_t __phys_addr_symbol(unsigned long x);
-#else
 #define __virt_to_phys(x)	__virt_to_phys_nodebug(x)
 #define __phys_addr_symbol(x)	__pa_symbol_nodebug(x)
-#endif
 
 #define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))
-
-/*
- * Convert a page to/from a physical address
- */
-#define page_to_phys(page)	(__pfn_to_phys(page_to_pfn(page)))
-#define phys_to_page(phys)	(pfn_to_page(__phys_to_pfn(phys)))
-
-/*
- * Note: Drivers should NOT use these.  They are the wrong
- * translation for translating DMA addresses.  Use the driver
- * DMA support - see dma-mapping.h.
- */
-#define virt_to_phys virt_to_phys
-static inline phys_addr_t virt_to_phys(const volatile void *x)
-{
-	return __virt_to_phys((unsigned long)(x));
-}
-
-#define phys_to_virt phys_to_virt
-static inline void *phys_to_virt(phys_addr_t x)
-{
-	return (void *)(__phys_to_virt(x));
-}
 
 /*
  * Drivers should NOT use these either.
@@ -297,8 +212,6 @@ static inline void *phys_to_virt(phys_addr_t x)
 #define __pa_nodebug(x)		__virt_to_phys_nodebug((unsigned long)(x))
 #define __va(x)			((void *)__phys_to_virt((phys_addr_t)(x)))
 #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
-#define virt_to_pfn(x)      __phys_to_pfn(__virt_to_phys((unsigned long)(x)))
-#define sym_to_pfn(x)	    __phys_to_pfn(__pa_symbol(x))
 
 /*
  *  virt_to_page(k)	convert a _valid_ virtual address to struct page *
@@ -306,41 +219,6 @@ static inline void *phys_to_virt(phys_addr_t x)
  */
 #define ARCH_PFN_OFFSET		((unsigned long)PHYS_PFN_OFFSET)
 
-#ifndef CONFIG_SPARSEMEM_VMEMMAP
-#define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
-#define _virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
-#else
-#define __virt_to_pgoff(kaddr)	(((u64)(kaddr) & ~PAGE_OFFSET) / PAGE_SIZE * sizeof(struct page))
-#define __page_to_voff(kaddr)	(((u64)(kaddr) & ~VMEMMAP_START) * PAGE_SIZE / sizeof(struct page))
-
-#define page_to_virt(page)	({					\
-	unsigned long __addr =						\
-		((__page_to_voff(page)) | PAGE_OFFSET);			\
-	__addr = __tag_set(__addr, page_kasan_tag(page));		\
-	((void *)__addr);						\
-})
-
-#define virt_to_page(vaddr)	((struct page *)((__virt_to_pgoff(vaddr)) | VMEMMAP_START))
-
-#define _virt_addr_valid(kaddr)	pfn_valid((((u64)(kaddr) & ~PAGE_OFFSET) \
-					   + PHYS_OFFSET) >> PAGE_SHIFT)
-#endif
-#endif
-
-#define _virt_addr_is_linear(kaddr)	\
-	(__tag_reset((u64)(kaddr)) >= PAGE_OFFSET)
-#define virt_addr_valid(kaddr)		\
-	(_virt_addr_is_linear(kaddr) && _virt_addr_valid(kaddr))
-
-/*
- * Given that the GIC architecture permits ITS implementations that can only be
- * configured with a LPI table address once, GICv3 systems with many CPUs may
- * end up reserving a lot of different regions after a kexec for their LPI
- * tables (one per CPU), as we are forced to reuse the same memory after kexec
- * (and thus reserve it persistently with EFI beforehand)
- */
-#if defined(CONFIG_EFI) && defined(CONFIG_ARM_GIC_V3_ITS)
-# define INIT_MEMBLOCK_RESERVED_REGIONS	(INIT_MEMBLOCK_REGIONS + NR_CPUS + 1)
 #endif
 
 #include <asm-generic/memory_model.h>

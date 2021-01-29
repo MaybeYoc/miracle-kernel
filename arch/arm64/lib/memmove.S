@@ -57,6 +57,7 @@ C_h	.req	x12
 D_l	.req	x13
 D_h	.req	x14
 
+ENTRY(__memmove)
 ENTRY(memmove)
 	cmp	dstin, src
 	b.lo	memcpy
@@ -194,4 +195,5 @@ ENTRY(memmove)
 	tst	count, #0x3f
 	b.ne	.Ltail63
 	ret
-ENDPROC(memmove)
+ENDPIPROC(memmove)
+ENDPROC(__memmove)

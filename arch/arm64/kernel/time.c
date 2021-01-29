@@ -1,3 +1,4 @@
+#include <asm/ptrace.h>
 
 #ifdef CONFIG_SMP
 unsigned long profile_pc(struct pt_regs *regs)

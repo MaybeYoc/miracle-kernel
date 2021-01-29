@@ -23,12 +23,8 @@
 
 #include <linux/compiler.h>
 #include <linux/sizes.h>
+#include <asm/memory.h>
 
-#ifndef CONFIG_ARM64_64K_PAGES
-#define THREAD_SIZE_ORDER	2
-#endif
-
-#define THREAD_SIZE		SZ_16K
 #define THREAD_START_SP		(THREAD_SIZE - 16)
 
 #ifndef __ASSEMBLY__
@@ -56,18 +52,10 @@ struct thread_info {
 
 #define INIT_THREAD_INFO(tsk)						\
 {									\
-	.task		= &tsk,						\
-	.exec_domain	= &default_exec_domain,				\
 	.flags		= 0,						\
-	.preempt_count	= INIT_PREEMPT_COUNT,				\
-	.addr_limit	= KERNEL_DS,					\
-	.restart_block	= {						\
-		.fn	= do_no_restart_syscall,			\
-	},								\
+	.preempt_count	= 0,				\
+	.addr_limit	= SZ_4K,					\
 }
-
-#define init_thread_info	(init_thread_union.thread_info)
-#define init_stack		(init_thread_union.stack)
 
 /*
  * how to get the current stack pointer from C

@@ -1,5 +1,6 @@
 #include <linux/types.h>
 #include <linux/cache.h>
+#include <linux/init.h>
 
 unsigned long elf_hwcap __read_mostly;
 

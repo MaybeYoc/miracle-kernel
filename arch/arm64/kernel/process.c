@@ -19,6 +19,7 @@
  */
 
 #include <stdarg.h>
+#include <linux/sched.h>
 
 /*
  * Called from setup_new_exec() after (COMPAT_)SET_PERSONALITY.

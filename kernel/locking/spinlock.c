@@ -19,6 +19,17 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 
+/*
+ * If lockdep is enabled then we use the non-preemption spin-ops
+ * even on CONFIG_PREEMPT, because lockdep assumes that interrupts are
+ * not re-enabled during lock-acquire (which the preempt-spin-ops do):
+ */
+#if !defined(CONFIG_GENERIC_LOCKBREAK)
+/*
+ * The __lock_function inlines are taken from
+ * include/linux/spinlock_api_smp.h
+ */
+#else
 #define raw_read_can_lock(l)	read_can_lock(l)
 #define raw_write_can_lock(l)	write_can_lock(l)
 
@@ -98,6 +109,8 @@ void __lockfunc __raw_##op##_lock_irq(locktype##_t *lock)		\
 BUILD_LOCK_OPS(spin, raw_spinlock);
 BUILD_LOCK_OPS(read, rwlock);
 BUILD_LOCK_OPS(write, rwlock);
+
+#endif
 
 #ifndef CONFIG_INLINE_SPIN_TRYLOCK
 int __lockfunc _raw_spin_trylock(raw_spinlock_t *lock)

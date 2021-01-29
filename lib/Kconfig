@@ -3,6 +3,9 @@
 # Library configuration
 #
 
+config BINARY_PRINTF
+	def_bool n
+
 menu "Library routines"
 #
 # libfdt files, only selected if needed.

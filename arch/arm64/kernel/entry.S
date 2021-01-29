@@ -20,7 +20,6 @@
 #include <linux/init.h>
 #include <linux/linkage.h>
 
-#include <asm/alternative.h>
 #include <asm/assembler.h>
 #include <asm/asm-offsets.h>
 /*

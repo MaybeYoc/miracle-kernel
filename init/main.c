@@ -1,23 +1,22 @@
-#include <linux/types.h>
-#include <linux/sizes.h>
-#include <linux/libfdt.h>
-
 /*
- * Used to generate warnings if static_key manipulation functions are used
- * before jump_label_init is called.
+ *  linux/init/main.c
+ *
+ *  Copyright (C) 1991, 1992  Linus Torvalds
+ *
+ *  GK 2/5/95  -  Changed to support mounting root fs via NFS
+ *  Added initrd & change_root: Werner Almesberger & Hans Lermen, Feb '96
+ *  Moan early if gcc is old, avoiding bogus kernels - Paul Gortmaker, May '96
+ *  Simplified starting of init:  Michael A. Griffith <grif@acm.org>
  */
-bool static_key_initialized __read_mostly;
 
-int start_kernel(void)
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/linkage.h>
+
+asmlinkage __visible void __init start_kernel(void)
 {
 	u64 aa = 32;
 	u32 bb = 64;
 
-	static_key_initialized = true;
-
-	if (static_key_initialized)
-		bb -= 32;
-	
 	aa += bb;
-	return aa;
 }

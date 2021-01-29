@@ -21,6 +21,7 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 #include <asm/assembler.h>
+#include <asm/asm-offsets.h>
 
 /*
  *	flush_icache_range(start,end)
@@ -49,7 +50,7 @@ ENTRY(__flush_cache_user_range)
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	bic	x4, x0, x3
-
+1:
 	dc cvau, x4
 	add	x4, x4, x2
 	cmp	x4, x1

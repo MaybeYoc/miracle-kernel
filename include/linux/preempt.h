@@ -66,4 +66,14 @@ do { \
 	__preempt_count_dec(); \
 } while (0)
 
+#define preemptible()				0
+
+/* TODO */
+#define in_irq()		(0)
+#define in_softirq()		(0)
+#define in_interrupt()		(0)
+#define in_serving_softirq()	(0)
+#define in_nmi()		(0)
+#define in_task()		(0)
+
 #endif /* __LINUX_PREEMPT_H */

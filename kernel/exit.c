@@ -1,6 +1,6 @@
 #include <linux/compiler.h>
 
-void __noreturn do_exit(long error_code)
+void do_exit(long error_code)
 {
 
 }

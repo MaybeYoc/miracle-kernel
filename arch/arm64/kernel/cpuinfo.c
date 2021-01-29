@@ -1,6 +1,7 @@
-#include <linux/init.h>
 #include <linux/kernel.h>
-#include <asm/cachetype.h>
+#include <linux/init.h>
+#include <linux/preempt.h>
+#include <linux/bug.h>
 #include <asm/cputype.h>
 
 unsigned long __icache_flags;

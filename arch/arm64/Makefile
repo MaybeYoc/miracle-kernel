@@ -80,7 +80,7 @@ CHECKFLAGS	+= -D__aarch64__
 # Default value
 head-y		:= arch/arm64/kernel/head.o
 
-TEXT_OFFSET := 0x00080000
+TEXT_OFFSET := 0x00000000
 
 export	TEXT_OFFSET GZFLAGS
 

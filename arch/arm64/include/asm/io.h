@@ -22,14 +22,11 @@
 #ifdef __KERNEL__
 
 #include <linux/types.h>
-#include <linux/blk_types.h>
 
 #include <asm/byteorder.h>
 #include <asm/barrier.h>
-#include <asm/pgtable.h>
-#include <asm/early_ioremap.h>
+#include <asm/page.h>
 
-#include <xen/xen.h>
 
 /*
  * Generic IO read/write.  These perform native-endian accesses.
