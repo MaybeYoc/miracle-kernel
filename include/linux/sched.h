@@ -4,9 +4,12 @@
 #include <linux/mm_types.h>
 #include <uapi/linux/sched.h>
 
+#include <asm/thread_info.h>
+
 #define PREEMPT_DISABLED	(1 + PREEMPT_ENABLED)
 
 struct task_struct {
+	struct thread_info		thread_info;
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;

@@ -1,16 +1,7 @@
 #include <linux/init_task.h>
-#include <asm/thread_info.h>
-#include <asm/memory.h>
+#include <linux/sched.h>
 
-struct task_struct {
-	struct thread_info		thread_info;
-	/* -1 unrunnable, 0 runnable, >0 stopped: */
-	volatile long			state;
-	void				*stack;
-	/* Per task flags (PF_*), defined further below: */
-	unsigned int			flags;
-	unsigned int			ptrace;
-};
+#include <asm/memory.h>
 
 extern unsigned long init_stack[THREAD_SIZE / sizeof(unsigned long)];
 
