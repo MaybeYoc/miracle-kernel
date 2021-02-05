@@ -205,6 +205,23 @@ extern u64			vabits_user;
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))
 
 /*
+ * Note: Drivers should NOT use these.  They are the wrong
+ * translation for translating DMA addresses.  Use the driver
+ * DMA support - see dma-mapping.h.
+ */
+#define virt_to_phys virt_to_phys
+static inline phys_addr_t virt_to_phys(const volatile void *x)
+{
+	return __virt_to_phys((unsigned long)(x));
+}
+
+#define phys_to_virt phys_to_virt
+static inline void *phys_to_virt(phys_addr_t x)
+{
+	return (void *)(__phys_to_virt(x));
+}
+
+/*
  * Drivers should NOT use these either.
  */
 #define __pa(x)			__virt_to_phys((unsigned long)(x))

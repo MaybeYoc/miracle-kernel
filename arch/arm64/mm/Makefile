@@ -1,2 +1,3 @@
 # SPDX-License-Identifier: GPL-2.0
-obj-y := cache.o ioremap.o copy_page.o proc.o mmu.o context.o
+obj-y := cache.o context.o copy_page.o flush.o init.o \
+		ioremap.o mmu.o proc.o
