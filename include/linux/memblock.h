@@ -70,21 +70,15 @@ extern int memblock_debug;
 #define MEMBLOCK_ALLOC_ANYWHERE	PHYS_ADDR_MAX
 #define MEMBLOCK_ALLOC_ACCESSIBLE	0
 
-phys_addr_t memblock_find_in_range_node(phys_addr_t size, phys_addr_t align,
-					phys_addr_t start, phys_addr_t end,
-					int nid, enum memblock_flags flags);
-phys_addr_t memblock_find_in_range(phys_addr_t start, phys_addr_t end,
-				   phys_addr_t size, phys_addr_t align);
-void memblock_allow_resize(void);
-int memblock_add_node(phys_addr_t base, phys_addr_t size, int nid);
-int memblock_add(phys_addr_t base, phys_addr_t size);
-int memblock_remove(phys_addr_t base, phys_addr_t size);
-int memblock_reserve(phys_addr_t base, phys_addr_t size);
-
 #define for_each_memblock_type(i, memblock_type, rgn)		\
 	for (i = 0, rgn = &memblock_type->regions[0];		\
 		 i < memblock_type->cnt;					\
 		 i++, rgn = &memblock_type->regions[i])
+
+#define for_each_memblock(memblock_type, region)					\
+	for (region = memblock.memblock_type.regions;					\
+	     region < (memblock.memblock_type.regions + memblock.memblock_type.cnt);	\
+	     region++)
 
 /**
  * for_each_mem_range - iterate through memblock areas from type_a and not
@@ -160,6 +154,93 @@ int memblock_reserve(phys_addr_t base, phys_addr_t size);
 	for_each_mem_range_rev(i, &memblock.memory, &memblock.reserved,	\
 			       nid, flags, p_start, p_end, p_nid)
 
+bool memblock_overlaps_region(struct memblock_type *type,
+			      phys_addr_t base, phys_addr_t size);
+
+phys_addr_t memblock_find_in_range_node(phys_addr_t size, phys_addr_t align,
+					phys_addr_t start, phys_addr_t end,
+					int nid, enum memblock_flags flags);
+phys_addr_t memblock_find_in_range(phys_addr_t start, phys_addr_t end,
+				   phys_addr_t size, phys_addr_t align);
+
+/* Low level functions */
+int memblock_add_range(struct memblock_type *type,
+		       phys_addr_t base, phys_addr_t size,
+		       int nid, enum memblock_flags flags);
+int memblock_add_node(phys_addr_t base, phys_addr_t size, int nid);
+int memblock_add(phys_addr_t base, phys_addr_t size);
+
+int memblock_reserve(phys_addr_t base, phys_addr_t size);
+
+int memblock_remove(phys_addr_t base, phys_addr_t size);
+
+int memblock_free(phys_addr_t base, phys_addr_t size);
+
+int memblock_mark_hotplug(phys_addr_t base, phys_addr_t size);
+int memblock_clear_hotplug(phys_addr_t base, phys_addr_t size);
+
+int memblock_mark_mirror(phys_addr_t base, phys_addr_t size);
+
+int memblock_mark_nomap(phys_addr_t base, phys_addr_t size);
+int memblock_clear_nomap(phys_addr_t base, phys_addr_t size);
+
+phys_addr_t __init memblock_alloc_range(phys_addr_t size, phys_addr_t align,
+					phys_addr_t start, phys_addr_t end,
+					enum memblock_flags flags);
+phys_addr_t memblock_alloc_base_nid(phys_addr_t size,
+					phys_addr_t align, phys_addr_t max_addr,
+					int nid, enum memblock_flags flags);
+phys_addr_t memblock_phys_alloc_nid(phys_addr_t size, phys_addr_t align, int nid);
+phys_addr_t __memblock_alloc_base(phys_addr_t size, phys_addr_t align,
+				  phys_addr_t max_addr);
+phys_addr_t memblock_alloc_base(phys_addr_t size, phys_addr_t align,
+				phys_addr_t max_addr);
+
+phys_addr_t memblock_phys_alloc(phys_addr_t size, phys_addr_t align);
+phys_addr_t memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid);
+
+void *memblock_alloc_try_nid_nopanic(phys_addr_t size, phys_addr_t align,
+				     phys_addr_t min_addr, phys_addr_t max_addr,
+				     int nid);
+void *memblock_alloc_try_nid(phys_addr_t size, phys_addr_t align,
+			     phys_addr_t min_addr, phys_addr_t max_addr,
+			     int nid);
+
+phys_addr_t memblock_phys_mem_size(void);
+phys_addr_t memblock_reserved_size(void);
+phys_addr_t memblock_start_of_DRAM(void);
+phys_addr_t memblock_end_of_DRAM(void);
+void memblock_enforce_memory_limit(phys_addr_t memory_limit);
+void memblock_cap_memory_range(phys_addr_t base, phys_addr_t size);
+void memblock_mem_limit_remove_map(phys_addr_t limit);
+
+bool memblock_is_reserved(phys_addr_t addr);
+bool memblock_is_memory(phys_addr_t addr);
+bool memblock_is_map_memory(phys_addr_t addr);
+bool memblock_is_region_memory(phys_addr_t base, phys_addr_t size);
+bool memblock_is_region_reserved(phys_addr_t base, phys_addr_t size);
+
+/**
+ * memblock_set_current_limit - Set the current allocation limit to allow
+ *                         limiting allocations to what is currently
+ *                         accessible during boot
+ * @limit: New limit value (physical address)
+ */
+void memblock_set_current_limit(phys_addr_t limit);
+phys_addr_t memblock_get_current_limit(void);
+
+extern void __memblock_dump_all(void);
+
+static inline void memblock_dump_all(void)
+{
+	if (memblock_debug)
+		__memblock_dump_all();
+}
+
+void memblock_trim_memory(phys_addr_t align);
+
+void memblock_allow_resize(void);
+
 static inline void memblock_set_region_node(struct memblock_region *r, int nid)
 {
 	r->nid = nid;
@@ -201,6 +282,18 @@ static inline bool memblock_is_mirror(struct memblock_region *m)
 static inline bool memblock_is_nomap(struct memblock_region *m)
 {
 	return m->flags & MEMBLOCK_NOMAP;
+}
+
+static inline void memblock_set_region_flags(struct memblock_region *r,
+					     enum memblock_flags flags)
+{
+	r->flags |= flags;
+}
+
+static inline void memblock_clear_region_flags(struct memblock_region *r,
+					       enum memblock_flags flags)
+{
+	r->flags &= ~flags;
 }
 
 #endif /* __KERNEL__ */
