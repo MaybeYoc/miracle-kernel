@@ -218,6 +218,9 @@ struct obs_kernel_param {
 	}								\
 	__setup_param(str_off, parse_##var##_off, parse_##var##_off, 1)
 
+/* used by init/main.c */
+void setup_arch(char **);
+
 #endif /* __ASSEMBLY__ */
 
 /* Data marked not to be saved by software suspend */

@@ -66,54 +66,72 @@ struct vm_area_struct {
 
 	/* linked list of VM areas per task, sorted by address */
 	struct vm_area_struct *vm_next, *vm_prev;
-};
+} __randomize_layout;
 
 struct mm_struct {
-	unsigned long mmap_base;	/* base of mmap area */
-	unsigned long mmap_legacy_base;	/* base of mmap area in bottom-up allocations */
+	struct {
+		struct vm_area_struct *mmap;	/* list of VMAs */
+		unsigned long mmap_base;	/* base of mmap area */
+		unsigned long mmap_legacy_base;	/* base of mmap area in bottom-up allocations */
 
-	unsigned long task_size;	/* size of task vm space */
-	unsigned long highest_vm_end;	/* highest vma end address */
-	pgd_t * pgd;
+		unsigned long task_size;	/* size of task vm space */
+		unsigned long highest_vm_end;	/* highest vma end address */
+		pgd_t * pgd;
 
-	/**
-	 * @mm_users: The number of users including userspace.
-	 *
-	 * Use mmget()/mmget_not_zero()/mmput() to modify. When this
-	 * drops to 0 (i.e. when the task exits and there are no other
-	 * temporary reference holders), we also release a reference on
-	 * @mm_count (which may then free the &struct mm_struct if
-	 * @mm_count also drops to 0).
-	 */
-	atomic_t mm_users;
+		/**
+		 * @mm_users: The number of users including userspace.
+		 *
+		 * Use mmget()/mmget_not_zero()/mmput() to modify. When this
+		 * drops to 0 (i.e. when the task exits and there are no other
+		 * temporary reference holders), we also release a reference on
+		 * @mm_count (which may then free the &struct mm_struct if
+		 * @mm_count also drops to 0).
+		 */
+		atomic_t mm_users;
 
-	/**
-	 * @mm_count: The number of references to &struct mm_struct
-	 * (@mm_users count as 1).
-	 *
-	 * Use mmgrab()/mmdrop() to modify. When this drops to 0, the
-	 * &struct mm_struct is freed.
-	 */
-	atomic_t mm_count;
+		/**
+		 * @mm_count: The number of references to &struct mm_struct
+		 * (@mm_users count as 1).
+		 *
+		 * Use mmgrab()/mmdrop() to modify. When this drops to 0, the
+		 * &struct mm_struct is freed.
+		 */
+		atomic_t mm_count;
 
-	int map_count;			/* number of VMAs */
+		int map_count;			/* number of VMAs */
 
-	spinlock_t page_table_lock; /* Protects page tables and some
-						* counters
+		spinlock_t page_table_lock; /* Protects page tables and some
+							* counters
+							*/
+
+		struct list_head mmlist; /* List of maybe swapped mm's.	These
+						* are globally strung together off
+						* init_mm.mmlist, and are protected
+						* by mmlist_lock
 						*/
 
-	struct list_head mmlist; /* List of maybe swapped mm's.	These
-					* are globally strung together off
-					* init_mm.mmlist, and are protected
-					* by mmlist_lock
-					*/
 
+		unsigned long hiwater_rss; /* High-watermark of RSS usage */
+		unsigned long hiwater_vm;  /* High-water virtual memory usage */
 
-	unsigned long hiwater_rss; /* High-watermark of RSS usage */
-	unsigned long hiwater_vm;  /* High-water virtual memory usage */
+		unsigned long total_vm;	   /* Total pages mapped */
 
-	unsigned long total_vm;	   /* Total pages mapped */
+		spinlock_t arg_lock; /* protect the below fields */
+		unsigned long start_code, end_code, start_data, end_data;
+		unsigned long start_brk, brk, start_stack;
+		unsigned long arg_start, arg_end, env_start, env_end;
+
+		unsigned long flags; /* Must use atomic bitops to access */
+	} __randomize_layout;
+
+	/*
+	 * The mm_cpumask needs to be at the end of mm_struct, because it
+	 * is dynamically sized based on nr_cpu_ids.
+	 */
+	unsigned long cpu_bitmap[];
 };
+
+extern struct mm_struct init_mm;
 
 /*
  * Used for sizing the vmemmap region on some architectures

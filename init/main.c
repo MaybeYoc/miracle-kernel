@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/linkage.h>
 #include <linux/memblock.h>
+#include <linux/init.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -26,7 +27,7 @@ phys_addr_t new_addr3;
 void *virt_addr;
 asmlinkage __visible void __init start_kernel(void)
 {
-	
+	setup_arch(NULL);
 	memblock_add(0x40000000, 0x50000);
 	memblock_add(0x80000000, 0x50000);
 	memblock_add(0x40005000, 0x50000);

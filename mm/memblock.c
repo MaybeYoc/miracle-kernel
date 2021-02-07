@@ -72,7 +72,7 @@ static bool __init_memblock memblock_addrs_overlap(phys_addr_t base1, phys_addr_
 bool __init_memblock memblock_overlaps_region(struct memblock_type *type,
 					phys_addr_t base, phys_addr_t size)
 {
-	u64 i;
+	unsigned long i;
 
 	for (i = 0; i < type->cnt; i++)
 		if (memblock_addrs_overlap(base, size, type->regions[i].base,
@@ -508,13 +508,13 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	new_array = addr ? __va(addr) : NULL;
 
 	if (!addr) {
-		pr_err("memblock: Failed to double %s array from %lld to %lld entries !\n",
+		pr_err("memblock: Failed to double %s array from %ld to %ld entries !\n",
 		       type->name, type->max, type->max * 2);
 		return -1;		
 	}
 
 	new_end = addr + new_size - 1;
-	memblock_dbg("memblock: %s is doubled to %lld at [%pa-%pa]",
+	memblock_dbg("memblock: %s is doubled to %ld at [%pa-%pa]",
 			type->name, type->max * 2, &addr, &new_end);
 	
 	/*
@@ -1354,7 +1354,7 @@ static void __init_memblock memblock_dump(struct memblock_type *type)
 	int idx;
 	struct memblock_region *rgn;
 
-	pr_info(" %s.cnt  = 0x%llx\n", type->name, type->cnt);
+	pr_info(" %s.cnt  = 0x%lx\n", type->name, type->cnt);
 
 	for_each_memblock_type(idx, type, rgn) {
 		char nid_buf[32] = "";

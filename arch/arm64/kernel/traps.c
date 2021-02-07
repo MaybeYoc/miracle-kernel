@@ -46,3 +46,23 @@ const char *esr_get_class_string(u32 esr)
 {
 	return esr_class_str[ESR_ELx_EC(esr)];
 }
+
+void __pte_error(const char *file, int line, unsigned long val)
+{
+	pr_err("%s:%d: bad pte %016lx.\n", file, line, val);
+}
+
+void __pmd_error(const char *file, int line, unsigned long val)
+{
+	pr_err("%s:%d: bad pmd %016lx.\n", file, line, val);
+}
+
+void __pud_error(const char *file, int line, unsigned long val)
+{
+	pr_err("%s:%d: bad pud %016lx.\n", file, line, val);
+}
+
+void __pgd_error(const char *file, int line, unsigned long val)
+{
+	pr_err("%s:%d: bad pgd %016lx.\n", file, line, val);
+}
