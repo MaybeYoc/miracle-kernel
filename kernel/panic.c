@@ -11,7 +11,7 @@
  */
 void panic(const char *fmt, ...)
 {
-	
+	while (1);
 }
 
 /*

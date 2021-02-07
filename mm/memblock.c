@@ -41,7 +41,7 @@ struct memblock memblock __initdata_memblock = {
 	.memory.regions	= memblock_memory_init_regions,
 
 	.reserved.name = "reserved",
-	.memory.cnt = 1,	/* empty dummy entry */
+	.reserved.cnt = 1,	/* empty dummy entry */
 	.reserved.max = INIT_MEMBLOCK_RESERVED_REGIONS,
 	.reserved.regions	= memblock_reserved_init_regions,
 
@@ -362,6 +362,29 @@ __memblock_find_range_top_down(phys_addr_t start, phys_addr_t end,
 	return 0;	
 }
 
+/**
+ * memblock_find_in_range_node - find free area in given range and node
+ * @size: size of free area to find
+ * @align: alignment of free area to find
+ * @start: start of candidate range
+ * @end: end of candidate range, can be %MEMBLOCK_ALLOC_ANYWHERE or
+ *       %MEMBLOCK_ALLOC_ACCESSIBLE
+ * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
+ * @flags: pick from blocks based on memory attributes
+ *
+ * Find @size free area aligned to @align in the specified range and node.
+ *
+ * When allocation direction is bottom-up, the @start should be greater
+ * than the end of the kernel image. Otherwise, it will be trimmed. The
+ * reason is that we want the bottom-up allocation just near the kernel
+ * image so it is highly likely that the allocated memory and the kernel
+ * will reside in the same node.
+ *
+ * If bottom-up allocation failed, will try to allocate memory top-down.
+ *
+ * Return:
+ * Found address on success, 0 on failure.
+ */
 phys_addr_t __init_memblock memblock_find_in_range_node(phys_addr_t size,
 					phys_addr_t align, phys_addr_t start,
 					phys_addr_t end, int nid,
@@ -413,6 +436,19 @@ phys_addr_t __init_memblock memblock_find_in_range_node(phys_addr_t size,
 					      flags);
 }
 
+/**
+ * memblock_find_in_range - find free area in given range
+ * @start: start of candidate range
+ * @end: end of candidate range, can be %MEMBLOCK_ALLOC_ANYWHERE or
+ *       %MEMBLOCK_ALLOC_ACCESSIBLE
+ * @size: size of free area to find
+ * @align: alignment of free area to find
+ *
+ * Find @size free area aligned to @align in the specified range.
+ *
+ * Return:
+ * Found address on success, 0 on failure.
+ */
 phys_addr_t __init_memblock memblock_find_in_range(phys_addr_t start,
 						phys_addr_t end, phys_addr_t size,
 						phys_addr_t align)
@@ -493,7 +529,10 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	type->max <<= 1;
 
 	/* TODO free old_array */
-	memblock_free(__pa(old_array), old_alloc_size);
+	/* Free old array. We needn't free it if the array is the static one */
+	if (old_array != memblock_memory_init_regions &&
+		 old_array != memblock_reserved_init_regions)
+		memblock_free(__pa(old_array), old_alloc_size);
 
 	/*
 	 * Reserve the new array if that comes from the memblock.  Otherwise, we
@@ -504,6 +543,22 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	return 0;
 }
 
+/**
+ * memblock_add_range - add new memblock region
+ * @type: memblock type to add new region into
+ * @base: base address of the new region
+ * @size: size of the new region
+ * @nid: nid of the new region
+ * @flags: flags of the new region
+ *
+ * Add new memblock region [@base, @base + @size) into @type.  The new region
+ * is allowed to overlap with existing ones - overlaps don't affect already
+ * existing regions.  @type is guaranteed to be minimal (all neighbouring
+ * compatible regions are merged) after the addition.
+ *
+ * Return:
+ * 0 on success, -errno on failure.
+ */
 int __init_memblock memblock_add_range(struct memblock_type *type,
 				phys_addr_t base, phys_addr_t size,
 				int nid, enum memblock_flags flags)
