@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
 
+#include <asm/tlbflush.h>
 #include <asm/pgtable.h>
 #include <asm/page.h>
 #include <asm/fixmap.h>
@@ -101,6 +102,6 @@ void __set_fixmap(enum fixed_addresses idx,
 		set_pte(ptep, pfn_pte(phys >> PAGE_SHIFT, flags));
 	} else {
 		pte_clear(&init_mm, addr, ptep);
-		//flush_tlb_kernel_range(addr, addr+PAGE_SIZE);
+		flush_tlb_kernel_range(addr, addr+PAGE_SIZE);
 	}
 }
