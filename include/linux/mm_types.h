@@ -2,9 +2,11 @@
 #ifndef _LINUX_MM_TYPES_H
 #define _LINUX_MM_TYPES_H
 
+#include <linux/rbtree.h>
 #include <linux/log2.h>
 #include <linux/spinlock.h>
 
+#include <asm/mmu.h>
 #include <asm/page.h>
 
 /*
@@ -66,11 +68,18 @@ struct vm_area_struct {
 
 	/* linked list of VM areas per task, sorted by address */
 	struct vm_area_struct *vm_next, *vm_prev;
+
+	struct rb_node vm_rb;
+
+	struct mm_struct *vm_mm;	/* The address space we belong to. */
+	pgprot_t vm_page_prot;		/* Access permissions of this VMA. */
+	unsigned long vm_flags;		/* Flags, see mm.h. */
 } __randomize_layout;
 
 struct mm_struct {
 	struct {
 		struct vm_area_struct *mmap;	/* list of VMAs */
+		struct rb_root mm_rb;
 		unsigned long mmap_base;	/* base of mmap area */
 		unsigned long mmap_legacy_base;	/* base of mmap area in bottom-up allocations */
 
@@ -120,6 +129,9 @@ struct mm_struct {
 		unsigned long start_code, end_code, start_data, end_data;
 		unsigned long start_brk, brk, start_stack;
 		unsigned long arg_start, arg_end, env_start, env_end;
+
+		/* Architecture-specific MM context */
+		mm_context_t context;
 
 		unsigned long flags; /* Must use atomic bitops to access */
 	} __randomize_layout;

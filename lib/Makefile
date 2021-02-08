@@ -9,7 +9,8 @@ obj-y += bitmap.o find_last_bit.o find_next_bit.o llist.o  \
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o
 obj-$(CONFIG_GENERIC_HWEIGHT) += hweight.o
 
-lib-y := ctype.o string.o vsprintf.o int_sqrt.o cmdline.o
+lib-y := ctype.o string.o vsprintf.o int_sqrt.o cmdline.o	\
+		rbtree.o
 
 ifneq ($(CONFIG_HAVE_DEC_LOCK),y)
 lib-y += dec_and_lock.o
