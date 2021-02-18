@@ -7,6 +7,10 @@
 
 #include <asm/pgtable.h>
 
+#ifndef INIT_MM_CONTEXT
+#define INIT_MM_CONTEXT(name)
+#endif
+
 /*
  * For dynamically allocated mm_structs, there is a dynamically sized cpumask
  * at the end of the structure, the size of which depends on the maximum CPU
@@ -20,4 +24,5 @@
 struct mm_struct init_mm = {
 	.pgd		= swapper_pg_dir,
 	.cpu_bitmap	= { [BITS_TO_LONGS(NR_CPUS)] = 0},
+	INIT_MM_CONTEXT(init_mm)
 };

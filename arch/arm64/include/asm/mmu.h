@@ -43,6 +43,11 @@ static inline bool arm64_kernel_unmapped_at_el0(void)
 	return false;
 }
 
+extern void *fixmap_remap_fdt(phys_addr_t dt_phys);
+
+#define INIT_MM_CONTEXT(name)	\
+	.pgd = init_pg_dir,
+
 #endif /* __ASSEMBLY__ */
 
 #endif

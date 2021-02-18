@@ -562,6 +562,8 @@ static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
 	return 0;
 }
 
+#include <asm-generic/pgtable.h>
+
 #endif /* !__ASSEMBLY__ */
 
 #endif /* __ASM_PGTABLE_H */

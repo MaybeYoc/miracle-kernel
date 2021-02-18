@@ -5,3 +5,4 @@
 
 obj-y += memblock.o
 obj-y += init_mm.o
+obj-y += early_ioremap.o

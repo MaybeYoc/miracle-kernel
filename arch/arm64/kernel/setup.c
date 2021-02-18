@@ -23,12 +23,20 @@
 
 #include <asm/fixmap.h>
 #include <asm/sections.h>
+#include <asm/early_ioremap.h>
+
+phys_addr_t __fdt_pointer __initdata;
 
 /*
  * The recorded values of x0 .. x3 upon kernel entry.
  */
 u64 __cacheline_aligned boot_args[4];
-phys_addr_t __fdt_pointer __initdata;
+
+void *dt_virt;
+static void __init setup_machine_fdt(phys_addr_t dt_phys)
+{
+	dt_virt = fixmap_remap_fdt(dt_phys);
+}
 
 void __init setup_arch(char **cmdline_p)
 {
@@ -38,4 +46,7 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.brk	   = (unsigned long) _end;	
 
 	early_fixmap_init();
+	early_ioremap_init();
+
+	setup_machine_fdt(__fdt_pointer);
 }
