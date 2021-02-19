@@ -249,6 +249,13 @@
 		MEM_KEEP(init.rodata)				\
 		MEM_KEEP(exit.rodata)				\
 	}										\
+										\
+	/* Built-in module parameters. */				\
+	__param : AT(ADDR(__param) - LOAD_OFFSET) {			\
+		__start___param = .;					\
+		KEEP(*(__param))					\
+		__stop___param = .;					\
+	}								\
 	. = ALIGN((align));
 
 #define INIT_TASK_DATA(align)						\

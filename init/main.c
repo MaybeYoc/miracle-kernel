@@ -14,34 +14,61 @@
 #include <linux/linkage.h>
 #include <linux/memblock.h>
 #include <linux/init.h>
+#include <linux/string.h>
+#include <linux/moduleparam.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
+#include <asm/setup.h>
 
-u64 test_addr;
-u64 aa = 0;
-u32 bb = 64;
-phys_addr_t new_addr;
-phys_addr_t new_addr2;
-phys_addr_t new_addr3;
-void *virt_addr;
+/* Untouched command line saved by arch-specific code. */
+char __initdata boot_command_line[COMMAND_LINE_SIZE];
+
+extern const struct obs_kernel_param __setup_start[], __setup_end[];
+
+/* Check for early params. */
+static int __init do_early_param(char *param, char *val,
+				 const char *unused, void *arg)
+{
+	const struct obs_kernel_param *p;
+
+	for (p = __setup_start; p < __setup_end; p++) {
+		if ((p->early && parameq(param, p->str)) ||
+		    (strcmp(param, "console") == 0 &&
+		     strcmp(p->str, "earlycon") == 0)
+		) {
+			if (p->setup_func(val) != 0)
+				pr_warn("Malformed early option '%s'\n", param);
+		}
+	}
+	/* We accept everything at this stage. */
+	return 0;
+}
+
+void __init parse_early_options(char *cmdline)
+{
+	parse_args("early options", cmdline, NULL, 0, 0, 0, NULL,
+		   do_early_param);
+}
+
+/* Arch code calls this early on, or if not, just before other parsing. */
+void __init parse_early_param(void)
+{
+	static int done __initdata;
+	static char tmp_cmdline[COMMAND_LINE_SIZE] __initdata;
+
+	if (done)
+		return;
+
+	/* All fall through to do_early_param. */
+	strlcpy(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
+	parse_early_options(tmp_cmdline);
+	done = 1;
+}
+
 asmlinkage __visible void __init start_kernel(void)
 {
-	setup_arch(NULL);
-	memblock_add(0x40000000, 0x50000);
-	memblock_add(0x80000000, 0x50000);
-	memblock_add(0x40005000, 0x50000);
-	memblock_add(0x60000000, 0x40000);
-	memblock_remove(0x60000000, 0x3000);
-	memblock_reserve(0x40006000, 0x100);
-	memblock_free(0x40006050, 0x20);
-	if (memblock_is_region_reserved(0x50000000, 0x200) == true)
-		aa = 1;
+	char *command_line;
 
-	new_addr = memblock_phys_alloc(0x300, 4096);
-	new_addr2 = memblock_phys_alloc(0x300, 4096);
-	test_addr = 1;
-	memblock_free(new_addr, 4096);
-	new_addr3 = memblock_phys_alloc(0x300, 4096);
-	test_addr = 3;
+	setup_arch(&command_line);
 }

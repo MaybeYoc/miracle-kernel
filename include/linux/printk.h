@@ -138,6 +138,8 @@ int printk_emit(int facility, int level,
 asmlinkage __printf(1, 2) __cold
 int printk(const char *fmt, ...);
 
+__printf(1, 2) void dump_stack_set_arch_desc(const char *fmt, ...);
+
 #else
 static inline __printf(1, 0)
 int vprintk(const char *s, va_list args)
@@ -150,6 +152,11 @@ int printk(const char *s, ...)
 {
 	return 0;
 }
+
+static inline __printf(1, 2) void dump_stack_set_arch_desc(const char *fmt, ...)
+{
+}
+
 #endif
 
 #ifndef pr_fmt

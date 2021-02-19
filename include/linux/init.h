@@ -218,8 +218,15 @@ struct obs_kernel_param {
 	}								\
 	__setup_param(str_off, parse_##var##_off, parse_##var##_off, 1)
 
+/* Defined in init/main.c */
+extern char __initdata boot_command_line[];
+
 /* used by init/main.c */
 void setup_arch(char **);
+
+/* Relies on boot_command_line being set */
+void __init parse_early_param(void);
+void __init parse_early_options(char *cmdline);
 
 #endif /* __ASSEMBLY__ */
 

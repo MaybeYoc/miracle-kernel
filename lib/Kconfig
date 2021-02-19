@@ -7,6 +7,75 @@ config BINARY_PRINTF
 	def_bool n
 
 menu "Library routines"
+
+config BITREVERSE
+	bool
+
+config HAVE_ARCH_BITREVERSE
+	bool
+	default n
+	depends on BITREVERSE
+	help
+	  This option enables the use of hardware bit-reversal instructions on
+	  architectures which support such operations.
+
+config CRC32
+	bool "CRC32/CRC32c functions"
+	default y
+	select BITREVERSE
+	help
+	  This option is provided for the case where no in-kernel-tree
+	  modules require CRC32/CRC32c functions, but a module built outside
+	  the kernel tree does. Such modules that use library CRC32/CRC32c
+	  functions require M here.
+
+choice
+	prompt "CRC32 implementation"
+	depends on CRC32
+	default CRC32_SLICEBY8
+	help
+	  This option allows a kernel builder to override the default choice
+	  of CRC32 algorithm.  Choose the default ("slice by 8") unless you
+	  know that you need one of the others.
+
+config CRC32_SLICEBY8
+	bool "Slice by 8 bytes"
+	help
+	  Calculate checksum 8 bytes at a time with a clever slicing algorithm.
+	  This is the fastest algorithm, but comes with a 8KiB lookup table.
+	  Most modern processors have enough cache to hold this table without
+	  thrashing the cache.
+
+	  This is the default implementation choice.  Choose this one unless
+	  you have a good reason not to.
+
+config CRC32_SLICEBY4
+	bool "Slice by 4 bytes"
+	help
+	  Calculate checksum 4 bytes at a time with a clever slicing algorithm.
+	  This is a bit slower than slice by 8, but has a smaller 4KiB lookup
+	  table.
+
+	  Only choose this option if you know what you are doing.
+
+config CRC32_SARWATE
+	bool "Sarwate's Algorithm (one byte at a time)"
+	help
+	  Calculate checksum a byte at a time using Sarwate's algorithm.  This
+	  is not particularly fast, but has a small 256 byte lookup table.
+
+	  Only choose this option if you know what you are doing.
+
+config CRC32_BIT
+	bool "Classic Algorithm (one bit at a time)"
+	help
+	  Calculate checksum one bit at a time.  This is VERY slow, but has
+	  no lookup table.  This is provided as a debugging option.
+
+	  Only choose this option if you are debugging crc32.
+
+endchoice
+
 #
 # libfdt files, only selected if needed.
 #

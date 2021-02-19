@@ -114,4 +114,7 @@ static inline int arch_irqs_disabled_flags(unsigned long flags)
 #define local_dbg_disable()	asm("msr	daifset, #8" : : : "memory")
 
 #endif
+
+#include <asm-generic/irqflags.h>
+
 #endif

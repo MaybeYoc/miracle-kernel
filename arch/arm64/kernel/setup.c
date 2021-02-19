@@ -20,7 +20,9 @@
 #include <linux/cache.h>
 #include <linux/init.h>
 #include <linux/mm_types.h>
+#include <linux/of_fdt.h>
 
+#include <asm/daifflags.h>
 #include <asm/fixmap.h>
 #include <asm/sections.h>
 #include <asm/early_ioremap.h>
@@ -32,10 +34,28 @@ phys_addr_t __fdt_pointer __initdata;
  */
 u64 __cacheline_aligned boot_args[4];
 
-void *dt_virt;
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
 {
-	dt_virt = fixmap_remap_fdt(dt_phys);
+	void *dt_virt = fixmap_remap_fdt(dt_phys);
+	const char *name;
+
+	if (!dt_virt || !early_init_dt_scan(dt_virt)) {
+		pr_crit("\n"
+			"Error: invalid device tree blob at physical address %pa (virtual address 0x%p)\n"
+			"The dtb must be 8-byte aligned and must not exceed 2 MB in size\n"
+			"\nPlease check your bootloader.",
+			&dt_phys, dt_virt);
+
+		while (true)
+			cpu_relax();
+	}
+
+	name = of_flat_dt_get_machine_name();
+	if (!name)
+		return;
+
+	pr_info("Machine model: %s\n", name);
+	dump_stack_set_arch_desc("%s (DT)", name);
 }
 
 void __init setup_arch(char **cmdline_p)
@@ -45,8 +65,21 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.end_data   = (unsigned long) _edata;
 	init_mm.brk	   = (unsigned long) _end;	
 
+	*cmdline_p = boot_command_line;
+
 	early_fixmap_init();
 	early_ioremap_init();
 
 	setup_machine_fdt(__fdt_pointer);
+
+	parse_early_param();
+
+	/*
+	 * Unmask asynchronous aborts and fiq after bringing up possible
+	 * earlycon. (Report possible System Errors once we can report this
+	 * occurred).
+	 */
+	local_daif_restore(DAIF_PROCCTX_NOIRQ);
+
+	while (1);
 }
