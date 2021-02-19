@@ -11,6 +11,7 @@
 #ifndef _LINUX_SLAB_H
 #define	_LINUX_SLAB_H
 
+#include <linux/mmzone.h>
 #include <linux/gfp.h>
 #include <linux/types.h>
 /* TODO */

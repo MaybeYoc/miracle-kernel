@@ -564,6 +564,12 @@ static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
 
 #include <asm-generic/pgtable.h>
 
+#ifdef CONFIG_ARM64_PA_BITS_52
+#define phys_to_ttbr(addr)	(((addr) | ((addr) >> 46)) & TTBR_BADDR_MASK_52)
+#else
+#define phys_to_ttbr(addr)	(addr)
+#endif
+
 #endif /* !__ASSEMBLY__ */
 
 #endif /* __ASM_PGTABLE_H */

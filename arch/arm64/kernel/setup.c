@@ -26,6 +26,8 @@
 #include <asm/fixmap.h>
 #include <asm/sections.h>
 #include <asm/early_ioremap.h>
+#include <asm/mmu_context.h>
+#include <asm/memblock.h>
 
 phys_addr_t __fdt_pointer __initdata;
 
@@ -81,7 +83,13 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	local_daif_restore(DAIF_PROCCTX_NOIRQ);
 
-	printk("init_mm.start_code %p\n", init_mm.start_code);
-	printk("init_mm.end_code %p\n", init_mm.end_code);
-	while (1);
+	/*
+	 * TTBR0 is only used for the identity mapping at this stage. Make it
+	 * point to zero page to avoid speculatively fetching new entries.
+	 */
+	cpu_uninstall_idmap();
+
+	arm64_memblock_init();
+
+	paging_init();
 }

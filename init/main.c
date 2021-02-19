@@ -73,4 +73,8 @@ asmlinkage __visible void __init start_kernel(void)
 	char *command_line;
 
 	setup_arch(&command_line);
+
+	printk("boot_cmd: %s\n", command_line);
+	__memblock_dump_all();
+	while(1);
 }

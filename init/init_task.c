@@ -11,6 +11,7 @@ struct task_struct init_task
 	.thread_info	= INIT_THREAD_INFO(init_task),
 	.state		= 0,
 	.stack		= init_stack,
+	.active_mm	= &init_mm,
 };
 
 struct thread_info init_thread_info __init_thread_info = INIT_THREAD_INFO(init_task);

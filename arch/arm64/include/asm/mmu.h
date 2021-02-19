@@ -44,6 +44,8 @@ static inline bool arm64_kernel_unmapped_at_el0(void)
 }
 
 extern void *fixmap_remap_fdt(phys_addr_t dt_phys);
+extern void paging_init(void);
+extern void bootmem_init(void);
 
 #define INIT_MM_CONTEXT(name)	\
 	.pgd = init_pg_dir,

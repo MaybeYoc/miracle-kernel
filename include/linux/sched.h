@@ -43,4 +43,9 @@ struct task_struct {
 	struct task_struct *group_leader;	/* threadgroup leader */
 };
 
+static inline pid_t task_pid_nr(struct task_struct *tsk)
+{
+	return tsk->pid;
+}
+
 #endif
