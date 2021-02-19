@@ -81,5 +81,7 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	local_daif_restore(DAIF_PROCCTX_NOIRQ);
 
+	printk("init_mm.start_code %p\n", init_mm.start_code);
+	printk("init_mm.end_code %p\n", init_mm.end_code);
 	while (1);
 }

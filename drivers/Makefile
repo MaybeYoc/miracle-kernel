@@ -8,3 +8,4 @@
 
 obj-y := test_driver.o
 obj-$(CONFIG_OF)		+= of/
+obj-y += tty/

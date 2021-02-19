@@ -21,6 +21,8 @@
 #include <asm/sections.h>
 #include <asm/setup.h>
 
+enum system_states system_state __read_mostly;
+
 /* Untouched command line saved by arch-specific code. */
 char __initdata boot_command_line[COMMAND_LINE_SIZE];
 

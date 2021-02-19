@@ -8,4 +8,6 @@
 /* test whether an address (unsigned long or pointer) is aligned to PAGE_SIZE */
 #define PAGE_ALIGNED(addr)	IS_ALIGNED((unsigned long)(addr), PAGE_SIZE)
 
+#define offset_in_page(p)	((unsigned long)(p) & ~PAGE_MASK)
+
 #endif /* _LINUX_MM_H */

@@ -1,2 +1,7 @@
-obj-y := printk.o panic.o exit.o params.o
+#
+# Makefile for the linux kernel.
+#
+
+obj-y := panic.o exit.o params.o
 obj-y += locking/
+obj-y += printk/
