@@ -574,6 +574,29 @@ source "kernel/Kconfig.hz"
 config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
+config FORCE_MAX_ZONEORDER
+	int
+	default "14" if (ARM64_64K_PAGES)
+	default "12" if (ARM64_16K_PAGES)
+	default "11"
+	help
+	  The kernel memory allocator divides physically contiguous memory
+	  blocks into "zones", where each zone is a power of two number of
+	  pages.  This option selects the largest power of two that the kernel
+	  keeps in the memory allocator.  If you need to allocate very large
+	  blocks of physically contiguous memory, then you may need to
+	  increase this value.
+
+	  This config option is actually maximum order plus one. For example,
+	  a value of 11 means that the largest free memory block is 2^10 pages.
+
+	  We make sure that we can allocate upto a HugePage size for each configuration.
+	  Hence we have :
+		MAX_ORDER = (PMD_SHIFT - PAGE_SHIFT) + 1 => PAGE_SHIFT - 2
+
+	  However for 4K, we choose a higher default value, 11 as opposed to 10, giving us
+	  4M allocations matching the default size used by generic code.
+
 config HARDEN_BRANCH_PREDICTOR
 	bool "Harden the branch predictor against aliasing attacks"
 	default y
