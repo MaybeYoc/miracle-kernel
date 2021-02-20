@@ -5,6 +5,7 @@
 #include <linux/types.h>
 #include <linux/mm.h>
 #include <linux/init.h>
+#include <linux/numa.h>
 
 /*
  * Logical memory blocks.
@@ -69,6 +70,13 @@ extern int memblock_debug;
 
 #define MEMBLOCK_ALLOC_ANYWHERE	PHYS_ADDR_MAX
 #define MEMBLOCK_ALLOC_ACCESSIBLE	0
+
+#ifndef ARCH_LOW_ADDRESS_LIMIT
+#define ARCH_LOW_ADDRESS_LIMIT  0xffffffffUL
+#endif
+
+/* We are using top down, so it is safe to use 0 here */
+#define MEMBLOCK_LOW_LIMIT 0
 
 #define for_each_memblock_type(i, memblock_type, rgn)		\
 	for (i = 0, rgn = &memblock_type->regions[0];		\
@@ -205,6 +213,37 @@ void *memblock_alloc_try_nid_nopanic(phys_addr_t size, phys_addr_t align,
 void *memblock_alloc_try_nid(phys_addr_t size, phys_addr_t align,
 			     phys_addr_t min_addr, phys_addr_t max_addr,
 			     int nid);
+
+static inline void * __init memblock_alloc(phys_addr_t size,  phys_addr_t align)
+{
+	return memblock_alloc_try_nid(size, align, MEMBLOCK_LOW_LIMIT,
+				      MEMBLOCK_ALLOC_ACCESSIBLE, NUMA_NO_NODE);
+}
+
+static inline void * __init memblock_alloc_nopanic(phys_addr_t size,
+						   phys_addr_t align)
+{
+	return memblock_alloc_try_nid_nopanic(size, align, MEMBLOCK_LOW_LIMIT,
+					      MEMBLOCK_ALLOC_ACCESSIBLE,
+					      NUMA_NO_NODE);
+}
+
+static inline void * __init memblock_alloc_low_nopanic(phys_addr_t size,
+						       phys_addr_t align)
+{
+	return memblock_alloc_try_nid_nopanic(size, align, MEMBLOCK_LOW_LIMIT,
+					      ARCH_LOW_ADDRESS_LIMIT,
+					      NUMA_NO_NODE);
+}
+
+static inline void * __init memblock_alloc_from_nopanic(phys_addr_t size,
+							phys_addr_t align,
+							phys_addr_t min_addr)
+{
+	return memblock_alloc_try_nid_nopanic(size, align, min_addr,
+					      MEMBLOCK_ALLOC_ACCESSIBLE,
+					      NUMA_NO_NODE);
+}
 
 phys_addr_t memblock_phys_mem_size(void);
 phys_addr_t memblock_reserved_size(void);
