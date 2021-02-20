@@ -51,6 +51,26 @@
 struct page {
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
+	struct list_head lru;
+	pgoff_t index;		/* Our offset within mapping. */
+	unsigned long private;
+
+	unsigned long compound_head;	/* Bit zero is set */
+	
+	void *freelist;		/* first free object */
+	void *virtual;			/* Kernel virtual address (NULL if
+					   not kmapped, ie. highmem) */
+	/*
+		* If the page is neither PageSlab nor mappable to userspace,
+		* the value stored here may help determine what this page
+		* is used for.  See page-flags.h for a list of page types
+		* which are currently stored here.
+		*/
+	unsigned int page_type;
+
+	/* Usage count. *DO NOT USE DIRECTLY*. See page_ref.h */
+	atomic_t _refcount;
+
 }  _struct_page_alignment;
 
 /*

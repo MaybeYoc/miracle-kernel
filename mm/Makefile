@@ -3,6 +3,8 @@
 # Makefile for the linux memory manager.
 #
 
+obj-y := page_alloc.o memory.o
+
 obj-y += memblock.o
 obj-y += init_mm.o
 obj-y += early_ioremap.o
