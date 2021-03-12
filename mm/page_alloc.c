@@ -22,6 +22,8 @@
 
 #include "internal.h"
 
+gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
+
 const char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
 	"Movable",

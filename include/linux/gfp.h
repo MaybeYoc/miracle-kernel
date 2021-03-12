@@ -31,6 +31,9 @@
 #define ___GFP_NO_KSWAPD	0x400000u
 #define ___GFP_OTHER_NODE	0x800000u
 #define ___GFP_WRITE		0x1000000u
+#define ___GFP_DIRECT_RECLAIM	0x200000u
+#define ___GFP_KSWAPD_RECLAIM	0x400000u
+
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
 /*
@@ -66,6 +69,8 @@
 #define __GFP_HIGH	((__force gfp_t)___GFP_HIGH)	/* Should access emergency pools? */
 #define __GFP_IO	((__force gfp_t)___GFP_IO)	/* Can start physical IO? */
 #define __GFP_FS	((__force gfp_t)___GFP_FS)	/* Can call down to low-level FS? */
+#define __GFP_DIRECT_RECLAIM	((__force gfp_t)___GFP_DIRECT_RECLAIM) /* Caller can reclaim */
+#define __GFP_RECLAIM ((__force gfp_t)(___GFP_DIRECT_RECLAIM|___GFP_KSWAPD_RECLAIM))
 #define __GFP_COLD	((__force gfp_t)___GFP_COLD)	/* Cache-cold page required */
 #define __GFP_NOWARN	((__force gfp_t)___GFP_NOWARN)	/* Suppress page allocation failure warning */
 #define __GFP_REPEAT	((__force gfp_t)___GFP_REPEAT)	/* See above */
@@ -147,5 +152,19 @@
 
 /* 4GB DMA on some platforms */
 #define GFP_DMA32	__GFP_DMA32
+
+static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
+{
+	return !!(gfp_flags & __GFP_DIRECT_RECLAIM);
+}
+
+/*
+ * gfp_allowed_mask is set to GFP_BOOT_MASK during early boot to restrict what
+ * GFP flags are used before interrupts are enabled. Once interrupts are
+ * enabled, it is set to __GFP_BITS_MASK while the system is running. During
+ * hibernation, it is used by PM to avoid I/O during memory allocation while
+ * devices are suspended.
+ */
+extern gfp_t gfp_allowed_mask;
 
 #endif /* __LINUX_GFP_H */

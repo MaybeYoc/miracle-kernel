@@ -52,12 +52,51 @@ struct page {
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
 	struct list_head lru;
+	/* TODO See page-flags.h for PAGE_MAPPING_FLAGS */
+	//struct address_space *mapping;
+	void *mapping;
+	
 	pgoff_t index;		/* Our offset within mapping. */
 	unsigned long private;
 
-	unsigned long compound_head;	/* Bit zero is set */
+	struct kmem_cache *slab_cache; /* not slob */
+
+	struct {	/* Tail pages of compound page */
+		unsigned long compound_head;	/* Bit zero is set */
+
+		/* First tail page only */
+		unsigned char compound_dtor;
+		unsigned char compound_order;
+		atomic_t compound_mapcount;
+	};
 	
+	struct {	/* Second tail page of compound page */
+		unsigned long _compound_pad_1;	/* compound_head */
+		unsigned long _compound_pad_2;
+		struct list_head deferred_list;
+	};
+	struct {	/* Page table pages */
+		unsigned long _pt_pad_1;	/* compound_head */
+		pgtable_t pmd_huge_pte; /* protected by page->ptl */
+		unsigned long _pt_pad_2;	/* mapping */
+		union {
+			struct mm_struct *pt_mm; /* x86 pgds only */
+			atomic_t pt_frag_refcount; /* powerpc */
+		};
+		spinlock_t ptl;
+	};
+
 	void *freelist;		/* first free object */
+
+	union {
+		unsigned long counters;		/* SLUB */
+		struct {			/* SLUB */
+			unsigned inuse:16;
+			unsigned objects:15;
+			unsigned frozen:1;
+		};
+	};
+
 	void *virtual;			/* Kernel virtual address (NULL if
 					   not kmapped, ie. highmem) */
 	/*

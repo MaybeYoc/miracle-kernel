@@ -52,6 +52,51 @@ static inline int page_zone_id(struct page *page)
 	//return (page->flags >> ZONEID_PGSHIFT) & ZONEID_MASK;
 }
 
+static inline unsigned int compound_order(struct page *page)
+{
+	if (!PageHead(page))
+		return 0;
+	return page[1].compound_order;
+}
+
+static inline void set_compound_order(struct page *page, unsigned int order)
+{
+	page[1].compound_order = order;
+}
+
+/*
+ * Return true only if the page has been allocated with
+ * ALLOC_NO_WATERMARKS and the low watermark was not
+ * met implying that the system is under some pressure.
+ */
+static inline bool page_is_pfmemalloc(struct page *page)
+{
+	/*
+	 * Page index cannot be this large so this must be
+	 * a pfmemalloc page.
+	 */
+	return page->index == -1UL;
+}
+
+#define page_address(page) page_to_virt(page)
+
+#define NODES_PGSHIFT		0
+#define NODES_MASK		1
+
+static inline int page_to_nid(const struct page *page)
+{
+	struct page *p = (struct page *)page;
+
+	return (PF_POISONED_CHECK(p)->flags >> NODES_PGSHIFT) & NODES_MASK;
+}
+
+static inline struct page *virt_to_head_page(const void *x)
+{
+	struct page *page = virt_to_page(x);
+
+	return compound_head(page);
+}
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_MM_H */

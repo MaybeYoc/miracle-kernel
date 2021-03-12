@@ -162,6 +162,25 @@ extern int memblock_debug;
 	for_each_mem_range_rev(i, &memblock.memory, &memblock.reserved,	\
 			       nid, flags, p_start, p_end, p_nid)
 
+int memblock_search_pfn_nid(unsigned long pfn, unsigned long *start_pfn,
+			    unsigned long  *end_pfn);
+void __next_mem_pfn_range(int *idx, int nid, unsigned long *out_start_pfn,
+			  unsigned long *out_end_pfn, int *out_nid);
+
+/**
+ * for_each_mem_pfn_range - early memory pfn range iterator
+ * @i: an integer used as loop variable
+ * @nid: node selector, %MAX_NUMNODES for all nodes
+ * @p_start: ptr to ulong for start pfn of the range, can be %NULL
+ * @p_end: ptr to ulong for end pfn of the range, can be %NULL
+ * @p_nid: ptr to int for nid of the range, can be %NULL
+ *
+ * Walks over configured memory ranges.
+ */
+#define for_each_mem_pfn_range(i, nid, p_start, p_end, p_nid)		\
+	for (i = -1, __next_mem_pfn_range(&i, nid, p_start, p_end, p_nid); \
+	     i >= 0; __next_mem_pfn_range(&i, nid, p_start, p_end, p_nid))
+
 bool memblock_overlaps_region(struct memblock_type *type,
 			      phys_addr_t base, phys_addr_t size);
 
@@ -279,6 +298,9 @@ static inline void memblock_dump_all(void)
 void memblock_trim_memory(phys_addr_t align);
 
 void memblock_allow_resize(void);
+
+int memblock_set_node(phys_addr_t base, phys_addr_t size,
+		      struct memblock_type *type, int nid);
 
 static inline void memblock_set_region_node(struct memblock_region *r, int nid)
 {

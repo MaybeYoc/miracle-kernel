@@ -11,3 +11,5 @@ obj-y += early_ioremap.o
 
 mmu-$(CONFIG_MMU) := vmalloc.o
 obj-y += $(mmu-y)
+
+obj-y += slub.o

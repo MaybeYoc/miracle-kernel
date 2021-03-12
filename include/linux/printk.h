@@ -140,6 +140,7 @@ int printk(const char *fmt, ...);
 
 __printf(1, 2) void dump_stack_set_arch_desc(const char *fmt, ...);
 
+extern asmlinkage void dump_stack(void) __cold;
 #else
 static inline __printf(1, 0)
 int vprintk(const char *s, va_list args)
@@ -154,6 +155,10 @@ int printk(const char *s, ...)
 }
 
 static inline __printf(1, 2) void dump_stack_set_arch_desc(const char *fmt, ...)
+{
+}
+
+static inline void dump_stack(void)
 {
 }
 

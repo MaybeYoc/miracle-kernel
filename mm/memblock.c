@@ -1280,6 +1280,67 @@ static int __init_memblock memblock_search(struct memblock_type *type, phys_addr
 	return -1;
 }
 
+/*
+ * Common iterator interface used to define for_each_mem_pfn_range().
+ */
+void __init_memblock __next_mem_pfn_range(int *idx, int nid,
+				unsigned long *out_start_pfn,
+				unsigned long *out_end_pfn, int *out_nid)
+{
+	struct memblock_type *type = &memblock.memory;
+	struct memblock_region *r;
+
+	while (++*idx < type->cnt) {
+		r = &type->regions[*idx];
+
+		if (PFN_UP(r->base) >= PFN_DOWN(r->base + r->size))
+			continue;
+		if (nid == MAX_NUMNODES || nid == r->nid)
+			break;
+	}
+	if (*idx >= type->cnt) {
+		*idx = -1;
+		return;
+	}
+
+	if (out_start_pfn)
+		*out_start_pfn = PFN_UP(r->base);
+	if (out_end_pfn)
+		*out_end_pfn = PFN_DOWN(r->base + r->size);
+	if (out_nid)
+		*out_nid = r->nid;
+}
+
+/**
+ * memblock_set_node - set node ID on memblock regions
+ * @base: base of area to set node ID for
+ * @size: size of area to set node ID for
+ * @type: memblock type to set node ID for
+ * @nid: node ID to set
+ *
+ * Set the nid of memblock @type regions in [@base, @base + @size) to @nid.
+ * Regions which cross the area boundaries are split as necessary.
+ *
+ * Return:
+ * 0 on success, -errno on failure.
+ */
+int __init_memblock memblock_set_node(phys_addr_t base, phys_addr_t size,
+				      struct memblock_type *type, int nid)
+{
+	int start_rgn, end_rgn;
+	int i, ret;
+
+	ret = memblock_isolate_range(type, base, size, &start_rgn, &end_rgn);
+	if (ret)
+		return ret;
+
+	for (i = start_rgn; i < end_rgn; i++)
+		memblock_set_region_node(&type->regions[i], nid);
+
+	memblock_merge_regions(type);
+	return 0;
+}
+
 bool __init_memblock memblock_is_reserved(phys_addr_t addr)
 {
 	return memblock_search(&memblock.reserved, addr) != -1;
@@ -1297,6 +1358,21 @@ bool __init_memblock memblock_is_map_memory(phys_addr_t addr)
 	if (i == -1)
 		return false;
 	return !memblock_is_nomap(&memblock.memory.regions[i]);
+}
+
+int __init_memblock memblock_search_pfn_nid(unsigned long pfn,
+			 unsigned long *start_pfn, unsigned long *end_pfn)
+{
+	struct memblock_type *type = &memblock.memory;
+	int mid = memblock_search(type, PFN_PHYS(pfn));
+
+	if (mid == -1)
+		return -1;
+
+	*start_pfn = PFN_DOWN(type->regions[mid].base);
+	*end_pfn = PFN_DOWN(type->regions[mid].base + type->regions[mid].size);
+
+	return type->regions[mid].nid;
 }
 
 /**

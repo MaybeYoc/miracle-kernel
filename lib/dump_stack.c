@@ -27,3 +27,18 @@ void __init dump_stack_set_arch_desc(const char *fmt, ...)
 		  fmt, args);
 	va_end(args);
 }
+
+/**
+ * dump_stack - dump the current task information and its stack trace
+ *
+ * Architectures can override this implementation by implementing its own.
+ */
+#ifdef CONFIG_SMP
+asmlinkage __visible void dump_stack(void)
+{
+}
+#else
+asmlinkage __visible void dump_stack(void)
+{
+}
+#endif
