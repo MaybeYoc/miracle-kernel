@@ -45,7 +45,6 @@ SECTIONS
 
 	. = KIMAGE_VADDR + TEXT_OFFSET;
 
-	__init_begin = .;
 	.head.text : {
 		_text = .;
 		HEAD_TEXT

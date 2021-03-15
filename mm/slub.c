@@ -1840,3 +1840,21 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 
 	return !!oo_objects(s->oo);
 }
+
+void kfree(const void *x)
+{
+	struct page *page;
+	void *object = (void *)x;
+
+	if (unlikely(ZERO_OR_NULL_PTR(x)))
+		return;
+
+	page = virt_to_head_page(x);
+	if (unlikely(!PageSlab(page))) {
+		BUG_ON(!PageCompound(page));
+		//kfree_hook(object);
+		//__free_pages(page, compound_order(page));
+		return;
+	}
+	slab_free(page->slab_cache, page, object, NULL, 1, _RET_IP_);
+}
