@@ -177,3 +177,13 @@ void __init arm64_memblock_init(void)
 
 	early_init_fdt_scan_reserved_mem();
 }
+
+void __init bootmem_init(void)
+{
+	unsigned long min, max;
+
+	min = PFN_UP(memblock_start_of_DRAM());
+	max = PFN_DOWN(memblock_end_of_DRAM());
+
+	early_memtest(min << PAGE_SHIFT, max << PAGE_SHIFT);
+}

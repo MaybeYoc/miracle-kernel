@@ -78,6 +78,58 @@ extern int memblock_debug;
 /* We are using top down, so it is safe to use 0 here */
 #define MEMBLOCK_LOW_LIMIT 0
 
+/*
+ * pfn conversion functions
+ *
+ * While the memory MEMBLOCKs should always be page aligned, the reserved
+ * MEMBLOCKs may not be. This accessor attempt to provide a very clear
+ * idea of what they return for such non aligned MEMBLOCKs.
+ */
+
+/**
+ * memblock_region_memory_base_pfn - get the lowest pfn of the memory region
+ * @reg: memblock_region structure
+ *
+ * Return: the lowest pfn intersecting with the memory region
+ */
+static inline unsigned long memblock_region_memory_base_pfn(const struct memblock_region *reg)
+{
+	return PFN_UP(reg->base);
+}
+
+/**
+ * memblock_region_memory_end_pfn - get the end pfn of the memory region
+ * @reg: memblock_region structure
+ *
+ * Return: the end_pfn of the reserved region
+ */
+static inline unsigned long memblock_region_memory_end_pfn(const struct memblock_region *reg)
+{
+	return PFN_DOWN(reg->base + reg->size);
+}
+
+/**
+ * memblock_region_reserved_base_pfn - get the lowest pfn of the reserved region
+ * @reg: memblock_region structure
+ *
+ * Return: the lowest pfn intersecting with the reserved region
+ */
+static inline unsigned long memblock_region_reserved_base_pfn(const struct memblock_region *reg)
+{
+	return PFN_DOWN(reg->base);
+}
+
+/**
+ * memblock_region_reserved_end_pfn - get the end pfn of the reserved region
+ * @reg: memblock_region structure
+ *
+ * Return: the end_pfn of the reserved region
+ */
+static inline unsigned long memblock_region_reserved_end_pfn(const struct memblock_region *reg)
+{
+	return PFN_UP(reg->base + reg->size);
+}
+
 #define for_each_memblock_type(i, memblock_type, rgn)		\
 	for (i = 0, rgn = &memblock_type->regions[0];		\
 		 i < memblock_type->cnt;					\
@@ -162,6 +214,20 @@ extern int memblock_debug;
 	for_each_mem_range_rev(i, &memblock.memory, &memblock.reserved,	\
 			       nid, flags, p_start, p_end, p_nid)
 
+/**
+ * for_each_reserved_mem_region - iterate over all reserved memblock areas
+ * @i: u64 used as loop variable
+ * @p_start: ptr to phys_addr_t for start address of the range, can be %NULL
+ * @p_end: ptr to phys_addr_t for end address of the range, can be %NULL
+ *
+ * Walks over reserved areas of memblock. Available as soon as memblock
+ * is initialized.
+ */
+#define for_each_reserved_mem_region(i, p_start, p_end)			\
+	for (i = 0UL, __next_reserved_mem_region(&i, p_start, p_end);	\
+	     i != (u64)ULLONG_MAX;					\
+	     __next_reserved_mem_region(&i, p_start, p_end))
+
 int memblock_search_pfn_nid(unsigned long pfn, unsigned long *start_pfn,
 			    unsigned long  *end_pfn);
 void __next_mem_pfn_range(int *idx, int nid, unsigned long *out_start_pfn,
@@ -180,6 +246,16 @@ void __next_mem_pfn_range(int *idx, int nid, unsigned long *out_start_pfn,
 #define for_each_mem_pfn_range(i, nid, p_start, p_end, p_nid)		\
 	for (i = -1, __next_mem_pfn_range(&i, nid, p_start, p_end, p_nid); \
 	     i >= 0; __next_mem_pfn_range(&i, nid, p_start, p_end, p_nid))
+
+void __next_mem_range(u64 *idx, int nid, enum memblock_flags flags,
+		      struct memblock_type *type_a,
+		      struct memblock_type *type_b, phys_addr_t *out_start,
+		      phys_addr_t *out_end, int *out_nid);
+
+void __next_mem_range_rev(u64 *idx, int nid, enum memblock_flags flags,
+			  struct memblock_type *type_a,
+			  struct memblock_type *type_b, phys_addr_t *out_start,
+			  phys_addr_t *out_end, int *out_nid);
 
 bool memblock_overlaps_region(struct memblock_type *type,
 			      phys_addr_t base, phys_addr_t size);
@@ -356,6 +432,14 @@ static inline void memblock_clear_region_flags(struct memblock_region *r,
 {
 	r->flags &= ~flags;
 }
+
+#ifdef CONFIG_MEMTEST
+extern void early_memtest(phys_addr_t start, phys_addr_t end);
+#else
+static inline void early_memtest(phys_addr_t start, phys_addr_t end)
+{
+}
+#endif
 
 #endif /* __KERNEL__ */
 
