@@ -35,8 +35,8 @@
  * strex/ldrex monitor on some implementations. The reason we can use it for
  * atomic_set() is the clrex or dummy strex done on every exception return.
  */
-#define atomic_read(v)	ACCESS_ONCE((v)->counter)
-#define atomic_set(v,i)	(((v)->counter) = (i))
+#define atomic_read(v)			READ_ONCE((v)->counter)
+#define atomic_set(v, i)		WRITE_ONCE(((v)->counter), (i))
 
 /*
  * AArch64 UP and SMP safe atomic ops.  We use load exclusive and
@@ -137,10 +137,9 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 /*
  * 64-bit atomic operations.
  */
-#define ATOMIC64_INIT(i) { (i) }
-
-#define atomic64_read(v)	ACCESS_ONCE((v)->counter)
-#define atomic64_set(v,i)	(((v)->counter) = (i))
+#define ATOMIC64_INIT			ATOMIC_INIT
+#define atomic64_read			atomic_read
+#define atomic64_set			atomic_set
 
 #define ATOMIC64_OP(op, asm_op)						\
 static inline void atomic64_##op(long i, atomic64_t *v)			\
