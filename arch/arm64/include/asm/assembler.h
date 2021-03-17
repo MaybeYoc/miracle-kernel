@@ -26,6 +26,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/sysreg.h>
 #include <asm/pgtable-hwdef.h>
+#include <asm/ptrace.h>
 #include <asm/thread_info.h>
 
 	.macro save_and_disable_daif, flags

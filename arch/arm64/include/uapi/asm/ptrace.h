@@ -23,7 +23,6 @@
 
 #include <asm/hwcap.h>
 
-
 /*
  * PSR bits
  * PSTATE CurrentEL + SPSel
