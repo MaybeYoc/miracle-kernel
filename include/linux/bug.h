@@ -1,16 +1,8 @@
 #ifndef _LINUX_BUG_H
 #define _LINUX_BUG_H
 
-#include <asm/bug.h>
 #include <linux/compiler.h>
-
-enum bug_trap_type {
-	BUG_TRAP_TYPE_NONE = 0,
-	BUG_TRAP_TYPE_WARN = 1,
-	BUG_TRAP_TYPE_BUG = 2,
-};
-
-struct pt_regs;
+#include <asm/bug.h>
 
 #ifdef __CHECKER__
 #define BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
@@ -84,11 +76,5 @@ struct pt_regs;
 #define BUILD_BUG() BUILD_BUG_ON_MSG(1, "BUILD_BUG failed")
 
 #endif	/* __CHECKER__ */
-
-static inline enum bug_trap_type report_bug(unsigned long bug_addr,
-					    struct pt_regs *regs)
-{
-	return BUG_TRAP_TYPE_BUG;
-}
 
 #endif	/* _LINUX_BUG_H */

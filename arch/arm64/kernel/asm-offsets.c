@@ -31,11 +31,12 @@ struct test_struct {
 int main(void)
 {
 	DEFINE(TSK_STACK_CANARY,	offsetof(struct test_struct, stack_canary));
-	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, task_size));
+	DEFINE(MM_CONTEXT_ID,		offsetof(struct mm_struct, context.id.counter));
 	DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
 	DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);	
 	DEFINE(CPU_BOOT_STACK,	offsetof(struct secondary_data, stack));
 	DEFINE(CPU_BOOT_TASK,		offsetof(struct secondary_data, task));
+	DEFINE(VMA_VM_MM,		offsetof(struct vm_area_struct, vm_mm));
 
 	return 0;
 }

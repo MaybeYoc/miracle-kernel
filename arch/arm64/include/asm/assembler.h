@@ -26,7 +26,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/sysreg.h>
 #include <asm/pgtable-hwdef.h>
-#include <asm/ptrace.h>
 #include <asm/thread_info.h>
 
 	.macro save_and_disable_daif, flags
@@ -78,26 +77,14 @@
 	.endm
 
 /*
- * Save/disable and restore interrupts.
- */
-	.macro	save_and_disable_irqs, olddaif
-	mrs	\olddaif, daif
-	disable_irq
-	.endm
-
-	.macro	restore_irqs, olddaif
-	msr	daif, \olddaif
-	.endm
-
-/*
  * Enable and disable debug exceptions.
  */
-	.macro	disable_dbg
-	msr	daifset, #8
-	.endm
-
 	.macro	enable_dbg
 	msr	daifclr, #8
+	.endm
+
+	.macro	disable_dbg
+	msr	daifset, #8
 	.endm
 
 	.macro	disable_step_tsk, flgs, tmp
@@ -154,6 +141,17 @@
 	.macro	sb
 	dsb	nsh
 	isb
+	.endm
+
+/*
+ * Sanitise a 64-bit bounded index wrt speculation, returning zero if out
+ * of bounds.
+ */
+	.macro	mask_nospec64, idx, limit, tmp
+	sub	\tmp, \idx, \limit
+	bic	\tmp, \tmp, \idx
+	and	\idx, \idx, \tmp, asr #63
+	csdb
 	.endm
 
 /*
@@ -262,6 +260,36 @@ lr	.req	x30		// link register
 	.macro	str_l, src, sym, tmp
 	adrp	\tmp, \sym
 	str	\src, [\tmp, :lo12:\sym]
+	.endm
+
+	/*
+	 * @dst: Result of per_cpu(sym, smp_processor_id()) (can be SP)
+	 * @sym: The name of the per-cpu variable
+	 * @tmp: scratch register
+	 */
+	.macro adr_this_cpu, dst, sym, tmp
+	adrp	\tmp, \sym
+	add	\dst, \tmp, #:lo12:\sym
+	mrs	\tmp, tpidr_el1
+	add	\dst, \dst, \tmp
+	.endm
+
+	/*
+	 * @dst: Result of READ_ONCE(per_cpu(sym, smp_processor_id()))
+	 * @sym: The name of the per-cpu variable
+	 * @tmp: scratch register
+	 */
+	.macro ldr_this_cpu dst, sym, tmp
+	adr_l	\dst, \sym
+	mrs	\tmp, tpidr_el1
+	ldr	\dst, [\dst, \tmp]
+	.endm
+
+/*
+ * vma_vm_mm - get mm pointer from vma pointer (vma->vm_mm)
+ */
+	.macro	vma_vm_mm, rd, rn
+	ldr	\rd, [\rn, #VMA_VM_MM]
 	.endm
 
 /*

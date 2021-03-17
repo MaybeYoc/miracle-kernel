@@ -6,7 +6,6 @@
 #ifndef __ASSEMBLY__
 #include <linux/kernel.h>
 
-#ifdef CONFIG_BUG
 /*
  * Don't use BUG() or BUG_ON() unless there's really no way out; one
  * example might be detecting data structure corruption in the middle
@@ -35,24 +34,10 @@
  * appear at runtime.  Use the versions with printk format strings
  * to provide better diagnostics.
  */
-#ifndef __WARN_TAINT
-extern __printf(3, 4)
-void warn_slowpath_fmt(const char *file, const int line,
-		       const char *fmt, ...);
-extern __printf(4, 5)
-void warn_slowpath_fmt_taint(const char *file, const int line, unsigned taint,
-			     const char *fmt, ...);
-extern void warn_slowpath_null(const char *file, const int line);
-#define WANT_WARN_ON_SLOWPATH
-#define __WARN()		warn_slowpath_null(__FILE__, __LINE__)
-#define __WARN_printf(arg...)	warn_slowpath_fmt(__FILE__, __LINE__, arg)
-#define __WARN_printf_taint(taint, arg...)				\
-	warn_slowpath_fmt_taint(__FILE__, __LINE__, taint, arg)
-#else
-#define __WARN()		__WARN_TAINT(TAINT_WARN)
+#ifndef HAVE_ARCH_WARN
+#define __WARN() do { \
+	printk("WARNING: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); } while (0)
 #define __WARN_printf(arg...)	do { printk(arg); __WARN(); } while (0)
-#define __WARN_printf_taint(taint, arg...)				\
-	do { printk(arg); __WARN_TAINT(taint); } while (0)
 #endif
 
 #ifndef WARN_ON
@@ -73,13 +58,6 @@ extern void warn_slowpath_null(const char *file, const int line);
 })
 #endif
 
-#define WARN_TAINT(condition, taint, format...) ({			\
-	int __ret_warn_on = !!(condition);				\
-	if (unlikely(__ret_warn_on))					\
-		__WARN_printf_taint(taint, format);			\
-	unlikely(__ret_warn_on);					\
-})
-
 #define WARN_ON_ONCE(condition)	({				\
 	static bool __section(.data.unlikely) __warned;		\
 	int __ret_warn_once = !!(condition);			\
@@ -99,47 +77,6 @@ extern void warn_slowpath_null(const char *file, const int line);
 			__warned = true;			\
 	unlikely(__ret_warn_once);				\
 })
-
-#define WARN_TAINT_ONCE(condition, taint, format...)	({	\
-	static bool __section(.data.unlikely) __warned;		\
-	int __ret_warn_once = !!(condition);			\
-								\
-	if (unlikely(__ret_warn_once))				\
-		if (WARN_TAINT(!__warned, taint, format))	\
-			__warned = true;			\
-	unlikely(__ret_warn_once);				\
-})
-
-#else /* !CONFIG_BUG */
-#ifndef HAVE_ARCH_BUG
-#define BUG() do {} while (1)
-#endif
-
-#ifndef HAVE_ARCH_BUG_ON
-#define BUG_ON(condition) do { if (condition) ; } while (0)
-#endif
-
-#ifndef HAVE_ARCH_WARN_ON
-#define WARN_ON(condition) ({						\
-	int __ret_warn_on = !!(condition);				\
-	unlikely(__ret_warn_on);					\
-})
-#endif
-
-#ifndef WARN
-#define WARN(condition, format...) ({					\
-	int __ret_warn_on = !!(condition);				\
-	no_printk(format);						\
-	unlikely(__ret_warn_on);					\
-})
-#endif
-
-#define WARN_ON_ONCE(condition) WARN_ON(condition)
-#define WARN_ONCE(condition, format...) WARN(condition, format)
-#define WARN_TAINT(condition, taint, format...) WARN(condition, format)
-#define WARN_TAINT_ONCE(condition, taint, format...) WARN(condition, format)
-
-#endif
 
 /*
  * WARN_ON_SMP() is for cases that the warning is either
