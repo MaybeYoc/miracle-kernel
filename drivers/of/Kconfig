@@ -36,4 +36,7 @@ config OF_RESERVED_MEM
 	help
 	  Helpers to allow for reservation of memory regions
 
+config OF_NUMA
+	bool
+
 endif # OF
