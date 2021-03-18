@@ -34,7 +34,7 @@ static void __init setup_node_data(int nid, unsigned long start_pfn, unsigned lo
 void __init zone_vmemmap_init(void)
 {
 	int i, nid;
-	unsigned long start_pfn, end_pfn, total_pfn_size, virt;
+	unsigned long pfn, start_pfn, end_pfn, total_pfn_size, virt;
 	phys_addr_t phys;
 
 	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid) {
@@ -48,5 +48,10 @@ void __init zone_vmemmap_init(void)
 		phys = memblock_phys_alloc(total_pfn_size, PAGE_SIZE);
 		map_vmemmap(init_mm.pgd, phys, virt, total_pfn_size);
 		memset((void *)virt, 0, total_pfn_size);
+
+		for (pfn = start_pfn; pfn < end_pfn; pfn++) {
+			struct page *page = pfn_to_page(pfn);
+			page->flags = nid;
+		}
 	}
 }
