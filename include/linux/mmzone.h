@@ -13,6 +13,7 @@
 #include <linux/page_ref.h>
 #include <linux/numa.h>
 
+#include <asm/mmzone.h>
 #include <asm/page.h>
 
 /* Free memory management - zoned buddy allocator.  */
@@ -157,7 +158,7 @@ struct zonelist {
 /* The array of struct pages - for discontigmem use pgdat->lmem_map */
 extern struct page *mem_map;
 
-typedef struct pglist_data {
+struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
 	struct zonelist node_zonelists[MAX_ZONELISTS];
 	int nr_zones;
@@ -177,7 +178,7 @@ typedef struct pglist_data {
 	spinlock_t		lru_lock;
 
 	unsigned long		flags;
-} pg_data_t;
+};
 
 static inline bool zone_is_initialized(struct zone *zone)
 {

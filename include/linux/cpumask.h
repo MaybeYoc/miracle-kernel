@@ -34,4 +34,25 @@ typedef struct cpumask { DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
 
 #define nr_cpumask_bits	((unsigned int)NR_CPUS)
 
+/* Valid inputs for n are -1 and 0. */
+static inline unsigned int cpumask_next(int n, const struct cpumask *srcp)
+{
+	return n+1;
+}
+
+#define nr_cpu_ids		1U
+
+/**
+ * for_each_cpu - iterate over every cpu in a mask
+ * @cpu: the (optionally unsigned) integer iterator
+ * @mask: the cpumask pointer
+ *
+ * After the loop, cpu is >= nr_cpu_ids.
+ */
+#define for_each_cpu(cpu, mask)				\
+	for ((cpu) = -1;				\
+		(cpu) = cpumask_next((cpu), (mask)),	\
+		(cpu) < nr_cpu_ids;)
+
+#define for_each_possible_cpu(cpu) for_each_cpu((cpu), 0)
 #endif /* __LINUX_CPUMASK_H */

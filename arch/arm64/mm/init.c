@@ -186,4 +186,8 @@ void __init bootmem_init(void)
 	max = PFN_DOWN(memblock_end_of_DRAM());
 
 	early_memtest(min << PAGE_SHIFT, max << PAGE_SHIFT);
+
+	zone_vmemmap_init();
+
+	memblock_dump_all();
 }

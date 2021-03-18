@@ -692,6 +692,13 @@ static void __init map_mem(pgd_t *pgdp)
 	memblock_clear_nomap(kernel_start, kernel_end - kernel_start);
 }
 
+void __init map_vmemmap(pgd_t *pgdp, phys_addr_t phys, 
+								unsigned long virt, size_t size)
+{
+	__create_pgd_mapping(pgdp, phys, virt, size,
+			PAGE_KERNEL, early_pgtable_alloc, NO_CONT_MAPPINGS);
+}
+
 /*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps and sets up the zero page.
