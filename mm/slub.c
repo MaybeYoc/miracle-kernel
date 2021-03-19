@@ -620,7 +620,7 @@ static void *get_partial(struct kmem_cache *s, gfp_t flags, int node,
 	if (node == NUMA_NO_NODE)
 		//searchnode = numa_mem_id();
 		;
-	//else if (!node_present_pages(node))
+	//else if (!node_total_pages(node))
 		//searchnode = node_to_mem_node(node);
 	//	;
 
@@ -965,7 +965,7 @@ redo:
 	if (unlikely(!node_match(page, node))) {
 		int searchnode = node;
 
-		//if (node != NUMA_NO_NODE && !node_present_pages(node))
+		//if (node != NUMA_NO_NODE && !node_total_pages(node))
 		//	searchnode = node_to_mem_node(node);
 
 		if (unlikely(!node_match(page, searchnode))) {

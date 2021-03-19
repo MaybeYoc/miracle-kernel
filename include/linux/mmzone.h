@@ -92,9 +92,11 @@ struct zone {
 
 	/* zone_start_pfn == zone_start_paddr >> PAGE_SHIFT */
 	unsigned long		zone_start_pfn;
+	unsigned long		zone_total_pages;
 
 	int initialized;
 
+	enum zone_type type;
 	/* free areas of different sizes */
 	struct free_area	free_area[MAX_ORDER];
 
@@ -155,17 +157,25 @@ struct zonelist {
 	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
 };
 
-/* The array of struct pages - for discontigmem use pgdat->lmem_map */
-extern struct page *mem_map;
+/*
+ * Bitmasks that are kept for all the nodes.
+ */
+enum node_states {
+	N_POSSIBLE,		/* The node could become online at some point */
+	N_ONLINE,		/* The node is online */
+	N_NORMAL_MEMORY,	/* The node has regular memory */
+	N_MEMORY,		/* The node has memory(regular, high, movable) */
+	N_CPU,		/* The node has one or more cpus */
+	NR_NODE_STATES
+};
 
 struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
 	struct zonelist node_zonelists[MAX_ZONELISTS];
 	int nr_zones;
 	unsigned long node_start_pfn;
-	unsigned long node_present_pages; /* total number of physical pages */
-	unsigned long node_spanned_pages; /* total size of physical page
-					     range, including holes */
+	unsigned long node_total_pages; /* total number of physical pages */
+
 	int node_id;
 	enum zone_type kswapd_classzone_idx;
 
@@ -180,10 +190,55 @@ struct pglist_data {
 	unsigned long		flags;
 };
 
+static inline void __set_pgdat_flags(struct pglist_data *pgdat, unsigned long flags)
+{
+	set_bit(flags, &pgdat->flags);
+}
+
+static inline int __test_pgdat_flags(struct pglist_data *pgdat, unsigned long flags)
+{
+	return test_bit(flags, &pgdat->flags);
+}
+
+static inline void set_node_online(int nid)
+{
+	__set_pgdat_flags(NODE_DATA(nid), N_ONLINE);
+}
+
+static inline int get_node_online(int nid)
+{
+	return __test_pgdat_flags(NODE_DATA(nid), N_ONLINE);
+}
+
 static inline bool zone_is_initialized(struct zone *zone)
 {
 	return zone->initialized;
 }
+
+struct pglist_data *first_online_pgdat(void);
+struct pglist_data *next_online_pgdat(struct pglist_data *pgdat);
+struct zone *next_zone(struct zone *zone);
+
+/**
+ * for_each_online_pgdat - helper macro to iterate over all online nodes
+ * @pgdat - pointer to a pg_data_t variable
+ */
+#define for_each_online_pgdat(pgdat)			\
+	for (pgdat = first_online_pgdat();		\
+	     pgdat;					\
+	     pgdat = next_online_pgdat(pgdat))
+
+/**
+ * for_each_zone - helper macro to iterate over all memory zones
+ * @zone - pointer to struct zone variable
+ *
+ * The user only needs to declare the zone variable, for_each_zone
+ * fills it in.
+ */
+#define for_each_zone(zone)			        \
+	for (zone = (first_online_pgdat())->node_zones; \
+	     zone;					\
+	     zone = next_zone(zone))
 
 /* TODO Default pfn valid sections_map */
 #define pfn_valid_within(pfn) (1)

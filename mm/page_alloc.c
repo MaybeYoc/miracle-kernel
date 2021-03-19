@@ -14,6 +14,7 @@
  *          (lots of bits borrowed from Ingo Molnar & Andrew Morton)
  */
 #include <linux/list.h>
+#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <linux/mmzone.h>
 #include <linux/mm_types.h>
@@ -23,6 +24,12 @@
 #include "internal.h"
 
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
+
+static char * const zone_names[MAX_NR_ZONES] = {
+	"DMA",
+	"Normal",
+	"Movable",
+};
 
 const char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
@@ -370,4 +377,119 @@ done_merging:
 	list_add(&page->lru, &zone->free_area[order].free_list[migratetype]);
 out:
 	zone->free_area[order].nr_free++;
+}
+
+/* Find the lowest pfn for a node */
+static unsigned long __init find_min_pfn_for_node(int nid)
+{
+	unsigned long min_pfn = ULONG_MAX;
+	unsigned long start_pfn;
+	int i;
+
+	for_each_mem_pfn_range(i, nid, &start_pfn, NULL, NULL)
+		min_pfn = min(min_pfn, start_pfn);
+
+	if (min_pfn == ULONG_MAX) {
+		pr_warn("Could not find start_pfn for node %d\n", nid);
+		return 0;
+	}
+
+	return min_pfn;
+}
+
+/**
+ * find_min_pfn_with_active_regions - Find the minimum PFN registered
+ *
+ * It returns the minimum PFN based on information provided via
+ * memblock_set_node().
+ */
+unsigned long __init find_min_pfn_with_active_regions(void)
+{
+	return find_min_pfn_for_node(MAX_NUMNODES);
+}
+
+static void __meminit init_currently_empty_zone(struct zone *zone,
+					unsigned long zone_start_pfn,
+					unsigned long size)
+{
+	/* TODO */
+}
+
+static void __init free_area_init_core(struct pglist_data *pgdat)
+{
+	enum zone_type j;
+
+	for (j = 0; j < MAX_NR_ZONES; j++) {
+		struct zone *zone = pgdat->node_zones + j;
+		unsigned long size;
+		unsigned long zone_start_pfn = zone->zone_start_pfn;
+
+		size = zone->zone_total_pages;
+		if (!size)
+			continue;
+
+		init_currently_empty_zone(zone, zone_start_pfn, size);
+	}
+}
+
+void __init free_area_init_node(int nid, unsigned long *max_zone_pfn)
+{
+	unsigned long pfn, start_pfn, min_pfn, total_pages;
+	struct pglist_data *pgdat = NODE_DATA(nid);
+	int i;
+
+	min_pfn = find_min_pfn_for_node(nid);
+	start_pfn = pgdat->node_start_pfn;
+	BUG_ON(min_pfn != start_pfn);
+	total_pages = pgdat->node_total_pages;
+	for (i = 0; i < MAX_NR_ZONES; i++) {
+		struct zone *zone = &pgdat->node_zones[i];
+		zone->name = zone_names[i];
+		zone->node = nid;
+		zone->zone_pgdat = pgdat;
+		zone->type = i;
+
+		if (max_zone_pfn[i]) {
+			zone->zone_start_pfn = start_pfn;
+			zone->zone_total_pages = max_zone_pfn[i];
+			for (pfn = start_pfn; pfn < start_pfn + max_zone_pfn[i]; pfn++) {
+				set_page_zone(pfn_to_page(pfn), i);
+				set_page_node(pfn_to_page(pfn), nid);
+			}
+			start_pfn += max_zone_pfn[i];
+			total_pages -= max_zone_pfn[i];
+		}
+	}
+	BUG_ON(total_pages);
+
+	free_area_init_core(pgdat);
+}
+
+/**
+ * free_area_init_nodes - Initialise all pg_data_t and zone data
+ * @max_zone_pfn: an array of max PFNs for each zone
+ *
+ * This will call free_area_init_node() for each active node in the system.
+ * Using the page ranges provided by memblock_set_node(), the size of each
+ * zone in each node and their holes is calculated. If the maximum PFN
+ * between two adjacent zones match, it is assumed that the zone is empty.
+ * For example, if arch_max_dma_pfn == arch_max_dma32_pfn, it is assumed
+ * that arch_max_dma32_pfn has no pages. It is also assumed that a zone
+ * starts where the previous one ended. For example, ZONE_DMA32 starts
+ * at arch_max_dma_pfn.
+ */
+void __init free_area_init_nodes(unsigned long *max_zone_pfn)
+{
+	struct pglist_data *pgdat;
+
+	/* TODO
+	 * Don't need removable and dma pages NOW!
+	 */
+	for_each_online_pgdat(pgdat) {
+		max_zone_pfn[ZONE_DMA] = 0;
+		max_zone_pfn[ZONE_NORMAL] = pgdat->node_total_pages;
+		max_zone_pfn[ZONE_MOVABLE] = 0;
+		free_area_init_node(pgdat->node_id, max_zone_pfn);
+	}
+		
 }

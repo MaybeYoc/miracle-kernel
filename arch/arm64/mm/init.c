@@ -187,6 +187,8 @@ void __init bootmem_init(void)
 
 	early_memtest(min << PAGE_SHIFT, max << PAGE_SHIFT);
 
+	arm64_numa_init();
+
 	zone_vmemmap_init();
 
 	memblock_dump_all();

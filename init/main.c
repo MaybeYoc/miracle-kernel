@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/string.h>
 #include <linux/moduleparam.h>
+#include <linux/mm.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -75,6 +76,6 @@ asmlinkage __visible void __init start_kernel(void)
 	setup_arch(&command_line);
 
 	printk("boot_cmd: %s\n", command_line);
-	__memblock_dump_all();
+
 	while(1);
 }
