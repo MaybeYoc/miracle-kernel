@@ -90,6 +90,7 @@ struct zone {
 	struct pglist_data	*zone_pgdat;
 	struct per_cpu_pageset __percpu *pageset;
 
+	atomic_long_t		managed_pages;
 	/* zone_start_pfn == zone_start_paddr >> PAGE_SHIFT */
 	unsigned long		zone_start_pfn;
 	unsigned long		zone_total_pages;
@@ -210,9 +211,17 @@ static inline int get_node_online(int nid)
 	return __test_pgdat_flags(NODE_DATA(nid), N_ONLINE);
 }
 
+#define node_online(nid) get_node_online(nid)
+
 static inline bool zone_is_initialized(struct zone *zone)
 {
 	return zone->initialized;
+}
+
+/* Returns true if a zone has memory */
+static inline bool populated_zone(struct zone *zone)
+{
+	return zone->zone_total_pages;
 }
 
 struct pglist_data *first_online_pgdat(void);
@@ -240,9 +249,22 @@ struct zone *next_zone(struct zone *zone);
 	     zone;					\
 	     zone = next_zone(zone))
 
-/* TODO Default pfn valid sections_map */
-#define pfn_valid_within(pfn) (1)
+#define for_each_populated_zone(zone)		        \
+	for (zone = (first_online_pgdat())->node_zones; \
+	     zone;					\
+	     zone = next_zone(zone))			\
+		if (!populated_zone(zone))		\
+			; /* do nothing */		\
+		else
 
+#define pfn_valid_within(pfn) pfn_valid(pfn)
+
+#define for_each_migratetype_order(order, type) \
+	for (order = 0; order < MAX_ORDER; order++)	\
+		for (type = 0; type < MIGRATE_TYPES; type++)
+
+void __init memblock_free_pages(struct page *page, unsigned long pfn,
+							unsigned int order);
 #endif /* !__GENERATING_BOUNDS.H */
 #endif /* !__ASSEMBLY__ */
 #endif /* _LINUX_MMZONE_H */

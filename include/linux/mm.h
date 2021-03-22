@@ -111,6 +111,28 @@ static inline void set_page_zone(struct page *page, enum zone_type zone)
 	page->flags |= (zone & ZONES_MASK) << ZONES_PGSHIFT;
 }
 
+static inline enum zone_type page_zonenum(const struct page *page)
+{
+	return (page->flags >> ZONES_PGSHIFT) & ZONES_MASK;
+}
+
+static inline void set_page_links(struct page *page, enum zone_type zone,
+						unsigned long node)
+{
+	set_page_zone(page, zone);
+	set_page_node(page, node);
+}
+
+static inline struct zone *page_zone(const struct page *page)
+{
+	return &NODE_DATA(page_to_nid(page))->node_zones[page_zonenum(page)];
+}
+
+static inline struct pglist_data *page_pgdat(const struct page *page)
+{
+	return NODE_DATA(page_to_nid(page));
+}
+
 /*
  * The identification function is mainly used by the buddy allocator for
  * determining if two pages could be buddies. We are not really identifying
@@ -131,7 +153,38 @@ static inline struct page *virt_to_head_page(const void *x)
 	return compound_head(page);
 }
 
+/*
+ * The atomic page->_mapcount, starts from -1: so that transitions
+ * both from it and to it can be tracked, using atomic_inc_and_test
+ * and atomic_add_negative(-1).
+ */
+static inline void page_mapcount_reset(struct page *page)
+{
+	atomic_set(&(page)->_mapcount, -1);
+}
+
 extern void free_area_init_nodes(unsigned long *max_zone_pfn);
+
+/*
+ * Methods to modify the page usage count.
+ *
+ * What counts for a page usage:
+ * - cache mapping   (page->mapping)
+ * - private data    (page->private)
+ * - page mapped in a task's page tables, each mapping
+ *   is counted separately
+ *
+ * Also, many kernel routines increase the page count before a critical
+ * routine so they can be sure the page doesn't go away from under them.
+ */
+/*
+ * Drop a ref, return true if the refcount fell to zero (the page has no users)
+ */
+static inline int put_page_testzero(struct page *page)
+{
+	VM_BUG_ON_PAGE(page_ref_count(page) == 0, page);
+	return page_ref_dec_and_test(page);
+}
 
 #endif /* __KERNEL__ */
 

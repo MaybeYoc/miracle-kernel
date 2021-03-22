@@ -36,7 +36,7 @@
  */
 #ifndef HAVE_ARCH_WARN
 #define __WARN() do { \
-	printk("WARNING: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); } while (0)
+	printk("WARNING: warn at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); } while (0)
 #define __WARN_printf(arg...)	do { printk(arg); __WARN(); } while (0)
 #endif
 

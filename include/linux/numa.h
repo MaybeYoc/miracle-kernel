@@ -14,4 +14,15 @@
 
 #define	NUMA_NO_NODE	(-1)
 
+/* Returns the number of the current Node. */
+#ifndef numa_node_id
+static inline int numa_node_id(void)
+{
+#ifdef CONFIG_NUMA
+	// return cpu_to_node(raw_smp_processor_id());
+#endif
+	return 0;
+}
+#endif
+
 #endif /* _LINUX_NUMA_H */

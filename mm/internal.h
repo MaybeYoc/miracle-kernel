@@ -48,4 +48,15 @@ static inline unsigned int page_order(struct page *page)
 	return page_private(page);
 }
 
+/*
+ * Turn a non-refcounted page (->_refcount == 0) into refcounted with
+ * a count of one.
+ */
+static inline void set_page_refcounted(struct page *page)
+{
+	VM_BUG_ON_PAGE(PageTail(page), page);
+	VM_BUG_ON_PAGE(page_ref_count(page), page);
+	set_page_count(page, 1);
+}
+
 #endif	/* __MM_INTERNAL_H */

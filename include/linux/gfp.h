@@ -4,7 +4,7 @@
 #include <linux/mmdebug.h>
 #include <linux/stddef.h>
 #include <linux/linkage.h>
-/* TODO */
+#include <linux/mmzone.h>
 
 /* Plain integer GFP bitmasks. Do not use this directly. */
 #define ___GFP_DMA		0x01u
@@ -166,5 +166,44 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
  * devices are suspended.
  */
 extern gfp_t gfp_allowed_mask;
+
+struct page *
+__alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid);
+
+static inline struct page *
+__alloc_pages(gfp_t gfp_mask, unsigned int order, int preferred_nid)
+{
+	return __alloc_pages_nodemask(gfp_mask, order, preferred_nid);
+}
+
+/*
+ * Allocate pages, preferring the node given as nid. The node must be valid and
+ * online. For more general interface, see alloc_pages_node().
+ */
+static inline struct page *
+__alloc_pages_node(int nid, gfp_t gfp_mask, unsigned int order)
+{
+	VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES);
+	VM_WARN_ON((gfp_mask & __GFP_THISNODE) && !node_online(nid));
+
+	return __alloc_pages(gfp_mask, order, nid);
+}
+
+/*
+ * Allocate pages, preferring the node given as nid. When nid == NUMA_NO_NODE,
+ * prefer the current CPU's closest node. Otherwise node must be valid and
+ * online.
+ */
+static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
+						unsigned int order)
+{
+	if (nid == NUMA_NO_NODE)
+		/* TODO */;
+
+	return __alloc_pages_node(nid, gfp_mask, order);
+}
+
+#define alloc_pages(gfp_mask, order) \
+		alloc_pages_node(numa_node_id(), gfp_mask, order)
 
 #endif /* __LINUX_GFP_H */
