@@ -255,6 +255,7 @@
 		__start___param = .;					\
 		KEEP(*(__param))					\
 		__stop___param = .;					\
+		__end_rodata = .;					\
 	}								\
 	. = ALIGN((align));
 

@@ -11,10 +11,34 @@
 #include <asm/memory.h>
 
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
+nodemask_t numa_nodes_parsed __initdata;
+
+static void __init setup_node_data(int nid, unsigned long start_pfn, unsigned long end_pfn)
+{
+	const size_t nd_size = roundup(sizeof(struct pglist_data), SMP_CACHE_BYTES);
+	unsigned long nd_pa;
+	void *nd;
+
+	if (start_pfn >= end_pfn)
+		pr_info("Initmem setup node %d [<memory-less node>]\n", nid);
+	
+	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
+	nd = __va(nd_pa);
+
+	node_data[nid] = nd;
+	memset(NODE_DATA(nid), 0, sizeof(struct pglist_data));
+	NODE_DATA(nid)->node_id = nid;
+	NODE_DATA(nid)->node_start_pfn = start_pfn;
+	NODE_DATA(nid)->node_spanned_pages = end_pfn - start_pfn;
+}
 
 static int __init numa_register_nodes(void)
 {
+	int nid;
+	size_t size;
 	struct memblock_region *mblk;
+	unsigned long virt;
+	phys_addr_t phys;
 
 	/* Check that valid nid is set to memblks */
 	for_each_memblock(memory, mblk)
@@ -25,12 +49,33 @@ static int __init numa_register_nodes(void)
 			return -EINVAL;
 		}
 
+	/* Finally register nodes. */
+	for_each_node_mask(nid, numa_nodes_parsed) {
+		unsigned long start_pfn, end_pfn;
+
+		get_pfn_range_for_nid(nid, &start_pfn, &end_pfn);
+		setup_node_data(nid, start_pfn, end_pfn);
+		node_set_online(nid);
+
+		size = (end_pfn - start_pfn) * sizeof(struct page);
+		virt = (unsigned long)pfn_to_page(start_pfn);
+		phys = memblock_phys_alloc(size, PAGE_SIZE);
+		map_vmemmap(init_mm.pgd, phys, virt, size);
+	}
+
+	/* Setup online nodes to actual nodes*/
+	node_possible_map = numa_nodes_parsed;
+
 	return 0;
 }
 
 static int __init numa_init(int (*init_func)(void))
 {
 	int ret;
+
+	nodes_clear(numa_nodes_parsed);
+	nodes_clear(node_possible_map);
+	nodes_clear(node_online_map);
 
 	ret = init_func();
 	if (ret < 0)
@@ -64,6 +109,7 @@ int __init numa_add_memblk(int nid, u64 start, u64 end)
 		return ret;
 	}
 
+	node_set(nid, numa_nodes_parsed);
 	return ret;
 }
 
@@ -107,69 +153,9 @@ static int __init dummy_numa_init(void)
 void __init arm64_numa_init(void)
 {
 #ifdef CONFIG_NUMA
-	numa_init(of_numa_init);
+#error "Error: Not support NUMA Now"
 #else
 	numa_init(dummy_numa_init);
 #endif
 
-}
-
-static void __init setup_node_data(int nid, unsigned long start_pfn, unsigned long end_pfn)
-{
-	const size_t nd_size = roundup(sizeof(struct pglist_data), SMP_CACHE_BYTES);
-	unsigned long nd_pa;
-	void *nd;
-
-	if (start_pfn >= end_pfn)
-		pr_info("Initmem setup node %d [<memory-less node>]\n", nid);
-	
-	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
-	nd = __va(nd_pa);
-
-	node_data[nid] = nd;
-	memset(NODE_DATA(nid), 0, sizeof(struct pglist_data));
-	NODE_DATA(nid)->node_id = nid;
-	NODE_DATA(nid)->node_start_pfn = start_pfn;
-	NODE_DATA(nid)->node_total_pages = end_pfn - start_pfn;
-}
-
-/*
- * Return the maximum physical address for ZONE_DMA32 (DMA_BIT_MASK(32)). It
- * currently assumes that for memory starting above 4G, 32-bit devices will
- * use a DMA offset.
- */
-static phys_addr_t __init max_zone_dma_phys(void)
-{
-	phys_addr_t offset = memblock_start_of_DRAM() & GENMASK_ULL(63, 32);
-	return min(offset + (1ULL << 32), memblock_end_of_DRAM());
-}
-
-static void __init zone_sizes_init(void)
-{
-	unsigned long max_zone_pfns[MAX_NR_ZONES]  = {0};
-
-	max_zone_pfns[ZONE_DMA] = PFN_DOWN(max_zone_dma_phys());
-	max_zone_pfns[ZONE_NORMAL] = PFN_DOWN(memblock_end_of_DRAM());
-
-	free_area_init_nodes(max_zone_pfns);
-}
-
-void __init zone_vmemmap_init(void)
-{
-	int i, nid;
-	unsigned long start_pfn, end_pfn, total_pfn_size, virt;
-	phys_addr_t phys;
-
-	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid) {
-		setup_node_data(nid, start_pfn, end_pfn);
-
-		total_pfn_size = (end_pfn - start_pfn) * sizeof(struct page);
-		virt = (unsigned long)pfn_to_page(start_pfn);
-		phys = memblock_phys_alloc(total_pfn_size, PAGE_SIZE);
-		map_vmemmap(init_mm.pgd, phys, virt, total_pfn_size);
-		memset((void *)virt, 0, total_pfn_size);
-		set_node_online(nid);
-	}
-
-	zone_sizes_init();
 }

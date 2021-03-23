@@ -178,6 +178,15 @@ void __init arm64_memblock_init(void)
 	early_init_fdt_scan_reserved_mem();
 }
 
+static void __init zone_sizes_init(unsigned long min, unsigned long max)
+{
+	unsigned long max_zone_pfns[MAX_NR_ZONES]  = {0};
+
+	max_zone_pfns[ZONE_NORMAL] = max;
+
+	free_area_init_nodes(max_zone_pfns);
+}
+
 void __init bootmem_init(void)
 {
 	unsigned long min, max;
@@ -189,7 +198,7 @@ void __init bootmem_init(void)
 
 	arm64_numa_init();
 
-	zone_vmemmap_init();
+	zone_sizes_init(min, max);
 
 	memblock_dump_all();
 }
@@ -202,4 +211,37 @@ int pfn_valid(unsigned long pfn)
 		return 0;
 
 	return memblock_is_map_memory(addr);
+}
+
+/*
+ * mem_init() marks the free areas in the mem_map and tells us how much memory
+ * is free.  This is done after various parts of the system have claimed their
+ * memory after the kernel image.
+ */
+void __init mem_init(void)
+{
+	/* this will put all unused low memory onto the freelists */
+	memblock_free_all();
+
+	mem_init_print_info(NULL);
+}
+
+void free_initmem(void)
+{
+	free_reserved_area(lm_alias(__init_begin),
+			   lm_alias(__init_end),
+			   0, "unused kernel");
+	/*
+	 * Unmap the __init region but leave the VM area in place. This
+	 * prevents the region from being reused for kernel modules, which
+	 * is not supported by kallsyms.
+	 */
+	/* TODO vmalloc.c */
+	//unmap_kernel_range((u64)__init_begin, (u64)(__init_end - __init_begin));
+}
+
+void __init free_initrd_mem(unsigned long start, unsigned long end)
+{
+		free_reserved_area((void *)start, (void *)end, 0, "initrd");
+		memblock_free(__virt_to_phys(start), end - start);
 }

@@ -7,6 +7,18 @@
 #include <linux/init.h>
 #include <linux/numa.h>
 
+extern unsigned long max_low_pfn;
+extern unsigned long min_low_pfn;
+
+/*
+ * highest page
+ */
+extern unsigned long max_pfn;
+/*
+ * highest possible page
+ */
+extern unsigned long long max_possible_pfn;
+
 /*
  * Logical memory blocks.
  *
@@ -431,6 +443,41 @@ static inline void memblock_clear_region_flags(struct memblock_region *r,
 					       enum memblock_flags flags)
 {
 	r->flags &= ~flags;
+}
+
+unsigned long memblock_free_all(void);
+
+void __memblock_free_late(phys_addr_t base, phys_addr_t size);
+
+static inline void __init memblock_free_late(phys_addr_t base, phys_addr_t size)
+{
+	__memblock_free_late(base, size);
+}
+
+extern atomic_long_t _totalram_pages;
+static inline unsigned long totalram_pages(void)
+{
+	return (unsigned long)atomic_long_read(&_totalram_pages);
+}
+
+static inline void totalram_pages_inc(void)
+{
+	atomic_long_inc(&_totalram_pages);
+}
+
+static inline void totalram_pages_dec(void)
+{
+	atomic_long_dec(&_totalram_pages);
+}
+
+static inline void totalram_pages_add(long count)
+{
+	atomic_long_add(count, &_totalram_pages);
+}
+
+static inline void totalram_pages_set(long val)
+{
+	atomic_long_set(&_totalram_pages, val);
 }
 
 #ifdef CONFIG_MEMTEST

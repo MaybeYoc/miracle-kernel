@@ -12,6 +12,7 @@
 #include <linux/page-flags.h>
 #include <linux/page_ref.h>
 #include <linux/numa.h>
+#include <linux/nodemask.h>
 
 #include <asm/mmzone.h>
 #include <asm/page.h>
@@ -25,6 +26,8 @@
 #define MAX_ORDER_NR_PAGES (1 << (MAX_ORDER - 1))
 
 #define pageblock_order		(MAX_ORDER-1)
+
+#define pageblock_nr_pages	(1UL << pageblock_order)
 
 /*
  * PAGE_ALLOC_COSTLY_ORDER is the order at which allocations are deemed
@@ -64,12 +67,49 @@ struct per_cpu_pages {
 
 struct per_cpu_pageset {
 	struct per_cpu_pages pcp;
+#ifdef CONFIG_SMP
+	s8 stat_threshold;
+	s8 vm_stat_diff[2];
+#endif
+};
+
+struct per_cpu_nodestat {
+	s8 stat_threshold;
+	s8 vm_node_stat_diff[2];
 };
 
 #endif /* !__GENERATING_BOUNDS.H */
 
 enum zone_type {
+#ifdef CONFIG_ZONE_DMA
+	/*
+	 * ZONE_DMA is used when there are devices that are not able
+	 * to do DMA to all of addressable memory (ZONE_NORMAL). Then we
+	 * carve out the portion of memory that is needed for these devices.
+	 * The range is arch specific.
+	 *
+	 * Some examples
+	 *
+	 * Architecture		Limit
+	 * ---------------------------
+	 * parisc, ia64, sparc	<4G
+	 * s390, powerpc	<2G
+	 * arm			Various
+	 * alpha		Unlimited or 0-16MB.
+	 *
+	 * i386, x86_64 and multiple other arches
+	 * 			<16M.
+	 */
 	ZONE_DMA,
+#endif
+#ifdef CONFIG_ZONE_DMA32
+	/*
+	 * x86_64 needs two ZONE_DMAs because it supports devices that are
+	 * only able to do DMA to the lower 16M but also 32 bit devices that
+	 * can only do DMA areas below 4G.
+	 */
+	ZONE_DMA32,
+#endif
 	/*
 	 * Normal addressable memory is in ZONE_NORMAL. DMA operations can be
 	 * performed on pages in ZONE_NORMAL if the DMA devices support
@@ -90,10 +130,12 @@ struct zone {
 	struct pglist_data	*zone_pgdat;
 	struct per_cpu_pageset __percpu *pageset;
 
-	atomic_long_t		managed_pages;
 	/* zone_start_pfn == zone_start_paddr >> PAGE_SHIFT */
 	unsigned long		zone_start_pfn;
-	unsigned long		zone_total_pages;
+
+	atomic_long_t		managed_pages;
+	unsigned long		spanned_pages;
+	unsigned long		present_pages;
 
 	int initialized;
 
@@ -158,24 +200,14 @@ struct zonelist {
 	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
 };
 
-/*
- * Bitmasks that are kept for all the nodes.
- */
-enum node_states {
-	N_POSSIBLE,		/* The node could become online at some point */
-	N_ONLINE,		/* The node is online */
-	N_NORMAL_MEMORY,	/* The node has regular memory */
-	N_MEMORY,		/* The node has memory(regular, high, movable) */
-	N_CPU,		/* The node has one or more cpus */
-	NR_NODE_STATES
-};
-
 struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
 	struct zonelist node_zonelists[MAX_ZONELISTS];
 	int nr_zones;
 	unsigned long node_start_pfn;
-	unsigned long node_total_pages; /* total number of physical pages */
+	unsigned long node_present_pages; /* total number of physical pages */
+	unsigned long node_spanned_pages; /* total size of physical page
+					     range, including holes */
 
 	int node_id;
 	enum zone_type kswapd_classzone_idx;
@@ -189,6 +221,8 @@ struct pglist_data {
 	spinlock_t		lru_lock;
 
 	unsigned long		flags;
+
+	struct per_cpu_nodestat __percpu *per_cpu_nodestats;
 };
 
 static inline void __set_pgdat_flags(struct pglist_data *pgdat, unsigned long flags)
@@ -211,7 +245,10 @@ static inline int get_node_online(int nid)
 	return __test_pgdat_flags(NODE_DATA(nid), N_ONLINE);
 }
 
-#define node_online(nid) get_node_online(nid)
+static inline void zone_set_nid(struct zone *zone, int nid)
+{
+	zone->node = nid;
+}
 
 static inline bool zone_is_initialized(struct zone *zone)
 {
@@ -221,12 +258,15 @@ static inline bool zone_is_initialized(struct zone *zone)
 /* Returns true if a zone has memory */
 static inline bool populated_zone(struct zone *zone)
 {
-	return zone->zone_total_pages;
+	return zone->present_pages;
 }
 
 struct pglist_data *first_online_pgdat(void);
 struct pglist_data *next_online_pgdat(struct pglist_data *pgdat);
 struct zone *next_zone(struct zone *zone);
+
+#define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
+#define node_spanned_pages(nid)	(NODE_DATA(nid)->node_spanned_pages)
 
 /**
  * for_each_online_pgdat - helper macro to iterate over all online nodes
@@ -265,6 +305,8 @@ struct zone *next_zone(struct zone *zone);
 
 void __init memblock_free_pages(struct page *page, unsigned long pfn,
 							unsigned int order);
+void reserve_bootmem_region(phys_addr_t start, phys_addr_t end);
+
 #endif /* !__GENERATING_BOUNDS.H */
 #endif /* !__ASSEMBLY__ */
 #endif /* _LINUX_MMZONE_H */

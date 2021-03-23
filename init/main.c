@@ -69,23 +69,21 @@ void __init parse_early_param(void)
 	done = 1;
 }
 
-extern void __free_one_page(struct page *page,
-		unsigned long pfn,
-		struct zone *zone, unsigned int order,
-		int migratetype);
+/*
+ * Set up kernel memory allocators
+ */
+static void __init mm_init(void)
+{
+	mem_init();
+}
 
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
-	unsigned long addr;
 
 	setup_arch(&command_line);
 
-	printk("boot_cmd: %s\n", command_line);
-
-	addr = memblock_phys_alloc_try_nid(4096, SMP_CACHE_BYTES, 0);
-	printk("addr 0x%lx\n", addr);
-
+	mm_init();
 
 	while(1);
 }

@@ -206,4 +206,10 @@ static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 #define alloc_pages(gfp_mask, order) \
 		alloc_pages_node(numa_node_id(), gfp_mask, order)
 
+extern void __free_pages(struct page *page, unsigned int order);
+extern void free_pages(unsigned long addr, unsigned int order);
+
+#define __free_page(page) __free_pages((page), 0)
+#define free_page(addr) free_pages((addr), 0)
+
 #endif /* __LINUX_GFP_H */

@@ -90,7 +90,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	if (level == -1)
 		level = default_message_loglevel;
 
-	puts_q(textbuf);
+	puts_q(text);
 	
 	local_irq_restore(flags);
 
