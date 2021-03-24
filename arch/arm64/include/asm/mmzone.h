@@ -4,6 +4,7 @@
 
 #include <linux/init.h>
 
+#include <asm/page.h>
 #include <asm/numa.h>
 
 extern struct pglist_data *node_data[];

@@ -49,14 +49,16 @@ static inline unsigned int page_order(struct page *page)
 }
 
 /*
- * Turn a non-refcounted page (->_refcount == 0) into refcounted with
- * a count of one.
+ * Like page_order(), but for callers who cannot afford to hold the zone lock.
+ * PageBuddy() should be checked first by the caller to minimize race window,
+ * and invalid values must be handled gracefully.
+ *
+ * READ_ONCE is used so that if the caller assigns the result into a local
+ * variable and e.g. tests it for valid range before using, the compiler cannot
+ * decide to remove the variable and inline the page_private(page) multiple
+ * times, potentially observing different values in the tests and the actual
+ * use of the result.
  */
-static inline void set_page_refcounted(struct page *page)
-{
-	VM_BUG_ON_PAGE(PageTail(page), page);
-	VM_BUG_ON_PAGE(page_ref_count(page), page);
-	set_page_count(page, 1);
-}
+#define page_order_unsafe(page)		READ_ONCE(page_private(page))
 
 #endif	/* __MM_INTERNAL_H */

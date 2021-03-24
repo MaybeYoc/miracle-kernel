@@ -7,27 +7,21 @@
 
 #include <linux/spinlock.h>
 #include <linux/list.h>
-#include <linux/init.h>
 #include <linux/atomic.h>
-#include <linux/page-flags.h>
-#include <linux/page_ref.h>
-#include <linux/numa.h>
-#include <linux/nodemask.h>
+#include <generated/bounds.h>
 
 #include <asm/mmzone.h>
-#include <asm/page.h>
 
-/* Free memory management - zoned buddy allocator.  */
-#ifndef CONFIG_FORCE_MAX_ZONEORDER
+#ifdef CONFIG_FORCE_MAX_ZONEORDER
 #define MAX_ORDER 11
 #else
 #define MAX_ORDER CONFIG_FORCE_MAX_ZONEORDER
 #endif
+
 #define MAX_ORDER_NR_PAGES (1 << (MAX_ORDER - 1))
 
-#define pageblock_order		(MAX_ORDER-1)
-
-#define pageblock_nr_pages	(1UL << pageblock_order)
+#define pageblock_order (MAX_ORDER - 1)
+#define pageblock_nr_pages (1UL << pageblock_order)
 
 /*
  * PAGE_ALLOC_COSTLY_ORDER is the order at which allocations are deemed
@@ -37,48 +31,15 @@
  */
 #define PAGE_ALLOC_COSTLY_ORDER 3
 
+#endif /* !__GENERATING_BOUNDS.H */
+
 enum migratetype {
 	MIGRATE_UNMOVABLE,
-	MIGRATE_MOVABLE,
-	MIGRATE_RECLAIMABLE,
-	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
-	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
-	MIGRATE_TYPES
+	MIGRATE_MOVABLE, /* user mmap */
+	MIGRATE_RECLAIMABLE, /* swapd, mmap file */
+	MIGRATE_PCPTYPES, /* the number of types on the pcp lists */
+	__MIGRATE_TYPES
 };
-
-/* In mm/page_alloc.c; keep in sync also with show_migration_types() there */
-extern const char * const migratetype_names[MIGRATE_TYPES];
-
-struct free_area {
-	struct list_head	free_list[MIGRATE_TYPES];
-	unsigned long		nr_free;
-};
-
-struct pglist_data;
-
-struct per_cpu_pages {
-	int count;		/* number of pages in the list */
-	int high;		/* high watermark, emptying needed */
-	int batch;		/* chunk size for buddy add/remove */
-
-	/* Lists of pages, one per migrate type stored on the pcp-lists */
-	struct list_head lists[MIGRATE_PCPTYPES];
-};
-
-struct per_cpu_pageset {
-	struct per_cpu_pages pcp;
-#ifdef CONFIG_SMP
-	s8 stat_threshold;
-	s8 vm_stat_diff[2];
-#endif
-};
-
-struct per_cpu_nodestat {
-	s8 stat_threshold;
-	s8 vm_node_stat_diff[2];
-};
-
-#endif /* !__GENERATING_BOUNDS.H */
 
 enum zone_type {
 #ifdef CONFIG_ZONE_DMA
@@ -122,137 +83,163 @@ enum zone_type {
 
 #ifndef __GENERATING_BOUNDS_H
 
+struct free_area {
+	struct list_head free_list[MIGRATE_TYPES];
+	unsigned long nr_free;
+};
+
+struct per_cpu_pages {
+	int count;		/* number of pages in the list */
+	int high;		/* high watermark, emptying needed */
+	int batch;		/* chunk size for buddy add/remove */
+
+	/* Lists of pages, one per migrate type stored on the pcp-lists */
+	struct list_head lists[MIGRATE_PCPTYPES];
+};
+
+struct per_cpu_pageset {
+	struct per_cpu_pages pcp;
+};
+
+struct pglist_data;
+
 struct zone {
-	const char		*name;
+	const char *name;
 
 	int node;
 
-	struct pglist_data	*zone_pgdat;
+	struct pglist_data *zone_pgdat;
 	struct per_cpu_pageset __percpu *pageset;
 
 	/* zone_start_pfn == zone_start_paddr >> PAGE_SHIFT */
-	unsigned long		zone_start_pfn;
+	unsigned long zone_start_pfn;
 
-	atomic_long_t		managed_pages;
-	unsigned long		spanned_pages;
-	unsigned long		present_pages;
+	atomic_long_t managed_pages;
+	unsigned long spanned_pages;
+	unsigned long present_pages;
 
 	int initialized;
 
-	enum zone_type type;
-	/* free areas of different sizes */
-	struct free_area	free_area[MAX_ORDER];
+	struct free_area free_area[MAX_ORDER];
 
-	/* zone flags, see below */
-	unsigned long		flags;
+	unsigned long flags;
 
 	/* Primarily protects free_area */
-	spinlock_t		lock;
+	spinlock_t lock;
 
-	bool			contiguous;
-};
+} ____cacheline_internodealigned_in_smp;
+
+static inline unsigned long zone_managed_pages(struct zone *zone)
+{
+	return (unsigned long)atomic_long_read(&zone->managed_pages);
+}
+
+static inline unsigned long zone_end_pfn(const struct zone *zone)
+{
+	return zone->zone_start_pfn + zone->spanned_pages;
+}
+
+static inline bool zone_spans_pfn(const struct zone *zone, unsigned long pfn)
+{
+	return zone->zone_start_pfn <= pfn && pfn < zone_end_pfn(zone);
+}
+
+static inline bool zone_is_initialized(struct zone *zone)
+{
+	return zone->initialized;
+}
+
+static inline bool zone_is_empty(struct zone *zone)
+{
+	return zone->spanned_pages == 0;
+}
 
 /*
- * The "priority" of VM scanning is how much of the queues we will scan in one
- * go. A value of 12 for DEF_PRIORITY implies that we will scan 1/4096th of the
- * queues ("queue_length >> 12") during an aging round.
+ * Return true if [start_pfn, start_pfn + nr_pages) range has a non-empty
+ * intersection with the given zone
  */
-#define DEF_PRIORITY 12
+static inline bool zone_intersects(struct zone *zone, unsigned long start_pfn,
+				   unsigned long nr_pages)
+{
+	if (zone_is_empty(zone))
+		return false;
+	if (start_pfn >= zone_end_pfn(zone) ||
+	    start_pfn + nr_pages <= zone->zone_start_pfn)
+		return false;
 
-/* Maximum number of zones on a zonelist */
-#define MAX_ZONES_PER_ZONELIST (MAX_NUMNODES * MAX_NR_ZONES)
+	return true;
+}
 
-enum {
-	ZONELIST_FALLBACK,	/* zonelist with fallback */
-	/*
-	 * The NUMA zonelists are doubled because we need zonelists that
-	 * restrict the allocations to a single node for __GFP_THISNODE.
-	 */
-	ZONELIST_NOFALLBACK,	/* zonelist without fallback (__GFP_THISNODE) */
-
-	MAX_ZONELISTS
+struct per_cpu_nodestat {
+	s8 stat_threshold;
 };
 
 /*
- * This struct contains information about a zone in a zonelist. It is stored
- * here to avoid dereferences into large structures and lookups of tables
- */
-struct zoneref {
-	struct zone *zone;	/* Pointer to actual zone */
-	int zone_idx;		/* zone_idx(zoneref->zone) */
-};
-
-/*
- * One allocation request operates on a zonelist. A zonelist
- * is a list of zones, the first one is the 'goal' of the
- * allocation, the other zones are fallback zones, in decreasing
- * priority.
+ * On NUMA machines, each NUMA node would have a pg_data_t to describe
+ * it's memory layout. On UMA machines there is a single pglist_data which
+ * describes the whole memory.
  *
- * To speed the reading of the zonelist, the zonerefs contain the zone index
- * of the entry being read. Helper functions to access information given
- * a struct zoneref are
- *
- * zonelist_zone()	- Return the struct zone * for an entry in _zonerefs
- * zonelist_zone_idx()	- Return the index of the zone for an entry
- * zonelist_node_idx()	- Return the index of the node for an entry
+ * Memory statistics and page replacement data structures are maintained on a
+ * per-zone basis.
  */
-struct zonelist {
-	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
-};
-
-struct pglist_data {
+typedef struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
-	struct zonelist node_zonelists[MAX_ZONELISTS];
-	int nr_zones;
+
 	unsigned long node_start_pfn;
 	unsigned long node_present_pages; /* total number of physical pages */
 	unsigned long node_spanned_pages; /* total size of physical page
 					     range, including holes */
 
 	int node_id;
-	enum zone_type kswapd_classzone_idx;
-
 	/*
 	 * This is a per-node reserve of pages that are not available
 	 * to userspace allocations.
 	 */
-	unsigned long		totalreserve_pages;
+	unsigned long totalreserve_pages;
 
-	spinlock_t		lru_lock;
+	spinlock_t lru_lock;
 
-	unsigned long		flags;
+	unsigned long flags;
 
+	/* Per-node vmstats */
 	struct per_cpu_nodestat __percpu *per_cpu_nodestats;
-};
+} pg_data_t;
 
-static inline void __set_pgdat_flags(struct pglist_data *pgdat, unsigned long flags)
+#define node_present_pages(nid) (NODE_DATA(nid)->node_present_pages)
+#define node_spanned_pages(nid) (NODE_DATA(nid)->node_spanned_pages)
+
+#define node_start_pfn(nid) (NODE_DATA(nid)->node_start_pfn)
+#define node_end_pfn(nid) pgdat_end_pfn(NODE_DATA(nid))
+
+static inline spinlock_t *zone_lru_lock(struct zone *zone)
 {
-	set_bit(flags, &pgdat->flags);
+	return &zone->zone_pgdat->lru_lock;
 }
 
-static inline int __test_pgdat_flags(struct pglist_data *pgdat, unsigned long flags)
+static inline unsigned long pgdat_end_pfn(pg_data_t *pgdat)
 {
-	return test_bit(flags, &pgdat->flags);
+	return pgdat->node_start_pfn + pgdat->node_spanned_pages;
 }
 
-static inline void set_node_online(int nid)
+static inline bool pgdat_is_empty(pg_data_t *pgdat)
 {
-	__set_pgdat_flags(NODE_DATA(nid), N_ONLINE);
+	return !pgdat->node_start_pfn && !pgdat->node_spanned_pages;
 }
 
-static inline int get_node_online(int nid)
-{
-	return __test_pgdat_flags(NODE_DATA(nid), N_ONLINE);
-}
+/*
+ * zone_idx() returns 0 for the ZONE_DMA zone, 1 for the ZONE_NORMAL zone, etc.
+ */
+#define zone_idx(zone) ((zone) - (zone)->zone_pgdat->node_zones)
 
-static inline void zone_set_nid(struct zone *zone, int nid)
+/*
+ * Returns true if a zone has pages managed by the buddy allocator.
+ * All the reclaim decisions have to use this function rather than
+ * populated_zone(). If the whole zone is reserved then we can easily
+ * end up with populated_zone() && !managed_zone().
+ */
+static inline bool managed_zone(struct zone *zone)
 {
-	zone->node = nid;
-}
-
-static inline bool zone_is_initialized(struct zone *zone)
-{
-	return zone->initialized;
+	return zone_managed_pages(zone);
 }
 
 /* Returns true if a zone has memory */
@@ -261,20 +248,26 @@ static inline bool populated_zone(struct zone *zone)
 	return zone->present_pages;
 }
 
-struct pglist_data *first_online_pgdat(void);
-struct pglist_data *next_online_pgdat(struct pglist_data *pgdat);
-struct zone *next_zone(struct zone *zone);
+static inline int zone_to_nid(struct zone *zone)
+{
+	return zone->node;
+}
 
-#define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
-#define node_spanned_pages(nid)	(NODE_DATA(nid)->node_spanned_pages)
+static inline void zone_set_nid(struct zone *zone, int nid)
+{
+	zone->node = nid;
+}
+
+extern struct pglist_data *first_online_pgdat(void);
+extern struct pglist_data *next_online_pgdat(struct pglist_data *pgdat);
+extern struct zone *next_zone(struct zone *zone);
 
 /**
  * for_each_online_pgdat - helper macro to iterate over all online nodes
  * @pgdat - pointer to a pg_data_t variable
  */
-#define for_each_online_pgdat(pgdat)			\
-	for (pgdat = first_online_pgdat();		\
-	     pgdat;					\
+#define for_each_online_pgdat(pgdat)                                           \
+	for (pgdat = first_online_pgdat(); pgdat;                              \
 	     pgdat = next_online_pgdat(pgdat))
 
 /**
@@ -284,28 +277,22 @@ struct zone *next_zone(struct zone *zone);
  * The user only needs to declare the zone variable, for_each_zone
  * fills it in.
  */
-#define for_each_zone(zone)			        \
-	for (zone = (first_online_pgdat())->node_zones; \
-	     zone;					\
+#define for_each_zone(zone)                                                    \
+	for (zone = (first_online_pgdat())->node_zones; zone;                  \
 	     zone = next_zone(zone))
 
-#define for_each_populated_zone(zone)		        \
-	for (zone = (first_online_pgdat())->node_zones; \
-	     zone;					\
-	     zone = next_zone(zone))			\
-		if (!populated_zone(zone))		\
-			; /* do nothing */		\
+#define for_each_populated_zone(zone)                                          \
+	for (zone = (first_online_pgdat())->node_zones; zone;                  \
+	     zone = next_zone(zone))                                           \
+		if (!populated_zone(zone))                                     \
+			; /* do nothing */                                     \
 		else
 
-#define pfn_valid_within(pfn) pfn_valid(pfn)
-
 #define for_each_migratetype_order(order, type) \
-	for (order = 0; order < MAX_ORDER; order++)	\
+	for (order = 0; order < MAX_ORDER; order++) \
 		for (type = 0; type < MIGRATE_TYPES; type++)
 
-void __init memblock_free_pages(struct page *page, unsigned long pfn,
-							unsigned int order);
-void reserve_bootmem_region(phys_addr_t start, phys_addr_t end);
+#define pfn_valid_within(pfn) pfn_valid(pfn)
 
 #endif /* !__GENERATING_BOUNDS.H */
 #endif /* !__ASSEMBLY__ */

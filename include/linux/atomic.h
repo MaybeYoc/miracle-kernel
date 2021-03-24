@@ -3,6 +3,38 @@
 #define _LINUX_ATOMIC_H
 #include <asm/atomic.h>
 
+#ifndef atomic_read_acquire
+#define  atomic_read_acquire(v)		smp_load_acquire(&(v)->counter)
+#endif
+
+#ifndef atomic_set_release
+#define  atomic_set_release(v, i)	smp_store_release(&(v)->counter, (i))
+#endif
+
+/*
+ * The idea here is to build acquire/release variants by adding explicit
+ * barriers on top of the relaxed variant. In the case where the relaxed
+ * variant is already fully ordered, no additional barriers are needed.
+ *
+ * If an architecture overrides __atomic_acquire_fence() it will probably
+ * want to define smp_mb__after_spinlock().
+ */
+#ifndef __atomic_acquire_fence
+#define __atomic_acquire_fence		smp_mb__after_atomic
+#endif
+
+#ifndef __atomic_release_fence
+#define __atomic_release_fence		smp_mb__before_atomic
+#endif
+
+#ifndef __atomic_pre_full_fence
+#define __atomic_pre_full_fence		smp_mb__before_atomic
+#endif
+
+#ifndef __atomic_post_full_fence
+#define __atomic_post_full_fence	smp_mb__after_atomic
+#endif
+
 /**
  * atomic_add_unless - add unless the number is already a given value
  * @v: pointer of type atomic_t

@@ -383,8 +383,8 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	order = compound_order(page);
 	page->slab_cache = s;
 	__SetPageSlab(page);
-	if (page_is_pfmemalloc(page))
-		SetPageSlabPfmemalloc(page);
+	//if (page_is_pfmemalloc(page))
+	//	SetPageSlabPfmemalloc(page);
 
 	start = page_address(page);
 
@@ -442,10 +442,10 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
 			check_object(s, page, p, SLUB_RED_INACTIVE);
 	}
 
-	__ClearPageSlabPfmemalloc(page);
+	//__ClearPageSlabPfmemalloc(page);
 	__ClearPageSlab(page);
 
-	page->mapping = NULL;
+	//page->mapping = NULL;
 	memcg_uncharge_slab(page, order, s);
 
 	/* TODO __free_pages(page, order); */

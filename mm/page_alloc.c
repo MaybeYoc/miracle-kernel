@@ -16,8 +16,6 @@
 #include <linux/list.h>
 #include <linux/memblock.h>
 #include <linux/mm.h>
-#include <linux/mmzone.h>
-#include <linux/mm_types.h>
 #include <linux/kernel.h>
 #include <linux/pfn.h>
 #include <linux/percpu.h>
@@ -30,11 +28,17 @@ static unsigned long arch_zone_lowest_possible_pfn[MAX_NR_ZONES] __initdata;
 static unsigned long arch_zone_highest_possible_pfn[MAX_NR_ZONES] __initdata;
 static unsigned long zone_movable_pfn[MAX_NUMNODES] __initdata;
 
+static void setup_pageset(struct per_cpu_pageset *p, unsigned long batch);
 static DEFINE_PER_CPU(struct per_cpu_pageset, boot_pageset);
 static DEFINE_PER_CPU(struct per_cpu_nodestat, boot_nodestats);
 
 atomic_long_t _totalram_pages __read_mostly;
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
+
+#if MAX_NUMNODES > 1
+int nr_node_ids __read_mostly = MAX_NUMNODES;
+int nr_online_nodes __read_mostly = 1;
+#endif
 
 /*
  * Array of node states.
@@ -44,9 +48,6 @@ nodemask_t node_states[NR_NODE_STATES] __read_mostly = {
 	[N_ONLINE] = { { [0] = 1UL } },
 #ifndef CONFIG_NUMA
 	[N_NORMAL_MEMORY] = { { [0] = 1UL } },
-#ifdef CONFIG_HIGHMEM
-	[N_HIGH_MEMORY] = { { [0] = 1UL } },
-#endif
 	[N_MEMORY] = { { [0] = 1UL } },
 	[N_CPU] = { { [0] = 1UL } },
 #endif	/* NUMA */
@@ -67,12 +68,17 @@ const char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
 	"Movable",
 	"Reclaimable",
-	"HighAtomic",
+	"Pcprate",
 };
+
+static __always_inline void set_pageblock_migratetype(struct page *page, int migratetype)
+{
+	set_page_migrate(page, migratetype);
+}
 
 static __always_inline int get_pfnblock_migratetype(struct page *page, unsigned long pfn)
 {
-	return page_zonenum(page);
+	return page_migratenum(page);
 }
 
 static inline int __maybe_unused bad_range(struct zone *zone, struct page *page)
@@ -118,12 +124,11 @@ static inline bool has_isolate_pageblock(struct zone *zone)
  */
 static inline int get_pcppage_migratetype(struct page *page)
 {
-	return page->index;
+	return 0; /* TODO */
 }
 
 static inline void set_pcppage_migratetype(struct page *page, int migratetype)
 {
-	page->index = migratetype;
 }
 
 static inline void set_page_order(struct page *page, unsigned int order)
@@ -154,7 +159,7 @@ static inline void rmv_page_order(struct page *page)
 static inline int page_is_buddy(struct page *page, struct page *buddy,
 							unsigned int order)
 {
-	if (page_is_guard(buddy) && page_order(buddy) == order) {
+	if (page_order(buddy) == order) {
 		if (page_zone_id(page) != page_zone_id(buddy))
 			return 0;
 
@@ -349,7 +354,7 @@ continue_merging:
 		 * Our buddy is free or it is CONFIG_DEBUG_PAGEALLOC guard page,
 		 * merge with it and move up one order.
 		 */
-		if (page_is_guard(buddy)) {
+		if (0) {
 			clear_page_guard(zone, buddy, order, migratetype);
 		} else {
 			list_del(&buddy->lru);
@@ -429,94 +434,6 @@ static inline void prefetch_buddy(struct page *page)
 	prefetch(buddy);
 }
 
-/*
- * Frees a number of pages from the PCP lists
- * Assumes all pages on list are in same zone, and of same order.
- * count is the number of pages to free.
- *
- * If the zone was previously in an "all pages pinned" state then look to
- * see if this freeing clears that state.
- *
- * And clear the zone's pages_scanned counter, to hold off the "all pages are
- * pinned" detection logic.
- */
-static void free_pcppages_bulk(struct zone *zone, int count,
-					struct per_cpu_pages *pcp)
-{
-	int migratetype = 0;
-	int batch_free = 0;
-	int prefetch_nr = 0;
-	bool isolated_pageblocks;
-	struct page *page, *tmp;
-	LIST_HEAD(head);
-
-	while (count) {
-		struct list_head *list;
-
-		/*
-		 * Remove pages from lists in a round-robin fashion. A
-		 * batch_free count is maintained that is incremented when an
-		 * empty list is encountered.  This is so more pages are freed
-		 * off fuller lists instead of spinning excessively around empty
-		 * lists
-		 */
-		do {
-			batch_free++;
-			if (++migratetype == MIGRATE_PCPTYPES)
-				migratetype = 0;
-			list = &pcp->lists[migratetype];
-		} while (list_empty(list));
-
-		/* This is the only non-empty list. Free them all. */
-		if (batch_free == MIGRATE_PCPTYPES)
-			batch_free = count;
-
-		do {
-			page = list_last_entry(list, struct page, lru);
-			/* must delete to avoid corrupting pcp list */
-			list_del(&page->lru);
-			pcp->count--;
-
-			if (bulkfree_pcp_prepare(page))
-				continue;
-
-			list_add_tail(&page->lru, &head);
-
-			/*
-			 * We are going to put the page back to the global
-			 * pool, prefetch its buddy to speed up later access
-			 * under zone->lock. It is believed the overhead of
-			 * an additional test and calculating buddy_pfn here
-			 * can be offset by reduced memory latency later. To
-			 * avoid excessive prefetching due to large count, only
-			 * prefetch buddy for the first pcp->batch nr of pages.
-			 */
-			if (prefetch_nr++ < pcp->batch)
-				prefetch_buddy(page);
-		} while (--count && --batch_free && !list_empty(list));
-	}
-
-	spin_lock(&zone->lock);
-	isolated_pageblocks = has_isolate_pageblock(zone);
-
-	/*
-	 * Use safe version since after __free_one_page(),
-	 * page->lru.next will not point to original list.
-	 */
-	list_for_each_entry_safe(page, tmp, &head, lru) {
-		int mt = get_pcppage_migratetype(page);
-		/* MIGRATE_ISOLATE page should not go to pcplists */
-		VM_BUG_ON_PAGE(is_migrate_isolate(mt), page);
-		/* Pageblock could have been isolated meanwhile */
-		if (unlikely(isolated_pageblocks))
-			//mt = get_pageblock_migratetype(page);
-			/* TODO */;
-
-		__free_one_page(page, page_to_pfn(page), zone, 0, mt);
-	}
-	spin_unlock(&zone->lock);
-}
-
 static void free_one_page(struct zone *zone,
 				struct page *page, unsigned long pfn,
 				unsigned int order,
@@ -531,20 +448,6 @@ static void free_one_page(struct zone *zone,
 	spin_unlock(&zone->lock);
 }
 
-static int free_tail_pages_check(struct page *head_page, struct page *page)
-{
-	int ret = 1;
-
-	/*
-	 * We rely page->lru.next never has bit 0 set, unless the page
-	 * is PageTail(). Let's make sure that's true even for poisoned ->lru.
-	 */
-	BUILD_BUG_ON((unsigned long)LIST_POISON1 & 1);
-
-	page->mapping = NULL;
-	clear_compound_head(page);
-	return ret;
-}
 
 /*
  * A bad page could be due to a number of fields. Instead of multiple branches,
@@ -557,10 +460,6 @@ static inline bool page_expected_state(struct page *page,
 	if (unlikely(atomic_read(&page->_mapcount) != -1))
 		return false;
 
-	if (unlikely((unsigned long)page->mapping |
-			page_ref_count(page) |
-			(page->flags & check_flags)))
-		return false;
 
 	return true;
 }
@@ -583,7 +482,6 @@ static inline int free_pages_check(struct page *page)
 static __always_inline bool free_pages_prepare(struct page *page,
 					unsigned int order, bool check_free)
 {
-	int bad = 0;
 
 	VM_BUG_ON_PAGE(PageTail(page), page);
 
@@ -593,21 +491,8 @@ static __always_inline bool free_pages_prepare(struct page *page,
 	 */
 	if (unlikely(order)) {
 		bool compound = PageCompound(page);
-		int i;
 
 		VM_BUG_ON_PAGE(compound && compound_order(page) != order, page);
-
-		if (compound)
-			ClearPageDoubleMap(page);
-		for (i = 1; i < (1 << order); i++) {
-			if (compound)
-				bad += free_tail_pages_check(page, page + i);
-			if (unlikely(free_pages_check(page + i))) {
-				bad++;
-				continue;
-			}
-			(page + i)->flags &= ~PAGE_FLAGS_CHECK_AT_PREP;
-		}
 	}
 
 	page->flags &= ~PAGE_FLAGS_CHECK_AT_PREP;
@@ -650,7 +535,7 @@ static bool free_unref_page_prepare(struct page *page, unsigned long pfn)
 static void free_unref_page_commit(struct page *page, unsigned long pfn)
 {
 	struct zone *zone = page_zone(page);
-	struct per_cpu_pages *pcp;
+	//struct per_cpu_pages *pcp;
 	int migratetype;
 
 	migratetype = get_pcppage_migratetype(page);
@@ -670,13 +555,13 @@ static void free_unref_page_commit(struct page *page, unsigned long pfn)
 		migratetype = MIGRATE_MOVABLE;
 	}
 
-	pcp = &this_cpu_ptr(zone->pageset)->pcp;
-	list_add(&page->lru, &pcp->lists[migratetype]);
-	pcp->count++;
-	if (pcp->count >= pcp->high) {
-		unsigned long batch = READ_ONCE(pcp->batch);
-		free_pcppages_bulk(zone, batch, pcp);
-	}
+	//pcp = &this_cpu_ptr(zone->pageset)->pcp;
+	//list_add(&page->lru, &pcp->lists[migratetype]);
+	//pcp->count++;
+	//if (pcp->count >= pcp->high) {
+	//	unsigned long batch = READ_ONCE(pcp->batch);
+		//free_pcppages_bulk(zone, batch, pcp);
+	//}
 }
 
 /*
@@ -849,7 +734,7 @@ void __init mem_init_print_info(const char *str)
 
 #undef	adj_init_size
 
-/* Temp */
+/* TODO Temp */
 #define nr_free_pages() (1UL)
 
 	pr_info("Memory: %luK/%luK available (%luK kernel code, %luK rwdata, %luK rodata, %luK init, %luK bss, %luK reserved"
@@ -898,6 +783,48 @@ unsigned long free_reserved_area(void *start, void *end, int poison, const char 
 			s, pages << (PAGE_SHIFT - 10));
 
 	return pages;
+}
+
+#if MAX_NUMNODES > 1
+/*
+ * Figure out the number of possible node ids.
+ */
+void __init setup_nr_node_ids(void)
+{
+	unsigned int highest;
+
+	highest = find_last_bit(node_possible_map.bits, MAX_NUMNODES);
+	nr_node_ids = highest + 1;
+}
+#endif
+
+/**
+ * get_pfn_range_for_nid - Return the start and end page frames for a node
+ * @nid: The nid to return the range for. If MAX_NUMNODES, the min and max PFN are returned.
+ * @start_pfn: Passed by reference. On return, it will have the node start_pfn.
+ * @end_pfn: Passed by reference. On return, it will have the node end_pfn.
+ *
+ * It returns the start and end page frame of a node based on information
+ * provided by memblock_set_node(). If called for a node
+ * with no available memory, a warning is printed and the start and end
+ * PFNs will be 0.
+ */
+void __init get_pfn_range_for_nid(unsigned int nid,
+			unsigned long *start_pfn, unsigned long *end_pfn)
+{
+	unsigned long this_start_pfn, this_end_pfn;
+	int i;
+
+	*start_pfn = -1UL;
+	*end_pfn = 0;
+
+	for_each_mem_pfn_range(i, nid, &this_start_pfn, &this_end_pfn, NULL) {
+		*start_pfn = min(*start_pfn, this_start_pfn);
+		*end_pfn = max(*end_pfn, this_end_pfn);
+	}
+
+	if (*start_pfn == -1UL)
+		*start_pfn = 0;
 }
 
 /* Find the lowest pfn for a node */
@@ -957,6 +884,8 @@ static void __meminit memmap_init_zone(unsigned long size, int nid, unsigned lon
 	for (pfn = start_pfn; pfn < end_pfn; pfn++) {
 		page = pfn_to_page(pfn);
 		__init_single_page(page, pfn, zone, nid);
+
+		set_pageblock_migratetype(page, MIGRATE_UNMOVABLE);
 	}
 }
 
@@ -970,6 +899,8 @@ static void __meminit init_currently_empty_zone(struct zone *zone,
 					unsigned long zone_start_pfn,
 					unsigned long size)
 {
+	zone->zone_start_pfn = zone_start_pfn;
+
 	zone_init_free_lists(zone);
 	zone->initialized = 1;
 }
@@ -977,6 +908,55 @@ static void __meminit init_currently_empty_zone(struct zone *zone,
 static void __meminit pgdat_init_internals(struct pglist_data *pgdat)
 {
 	spin_lock_init(&pgdat->lru_lock);
+}
+
+static int zone_batchsize(struct zone *zone)
+{
+#ifdef CONFIG_MMU
+	int batch;
+
+	/*
+	 * The per-cpu-pages pools are set to around 1000th of the
+	 * size of the zone.
+	 */
+	batch = zone_managed_pages(zone) / 1024;
+	/* But no more than a meg. */
+	if (batch * PAGE_SIZE > 1024 * 1024)
+		batch = (1024 * 1024) / PAGE_SIZE;
+	batch /= 4;		/* We effectively *= 4 below */
+	if (batch < 1)
+		batch = 1;
+
+	/*
+	 * Clamp the batch to a 2^n - 1 value. Having a power
+	 * of 2 value was found to be more likely to have
+	 * suboptimal cache aliasing properties in some cases.
+	 *
+	 * For example if 2 tasks are alternately allocating
+	 * batches of pages, one task can end up with a lot
+	 * of pages of one half of the possible page colors
+	 * and the other with pages of the other colors.
+	 */
+	batch = rounddown_pow_of_two(batch + batch/2) - 1;
+
+	return batch;
+
+#else
+	/* The deferral and batching of frees should be suppressed under NOMMU
+	 * conditions.
+	 *
+	 * The problem is that NOMMU needs to be able to allocate large chunks
+	 * of contiguous memory as there's no hardware page translation to
+	 * assemble apparent contiguous memory from discontiguous pages.
+	 *
+	 * Queueing large contiguous runs of pages for batching, however,
+	 * causes the pages to actually be freed in smaller chunks.  As there
+	 * can be a significant delay between the individual batches being
+	 * recycled, this leads to the once large chunks of space being
+	 * fragmented and becoming unavailable for high-order allocations.
+	 */
+	return 0;
+#endif
 }
 
 static __meminit void zone_pcp_init(struct zone *zone)
@@ -987,6 +967,11 @@ static __meminit void zone_pcp_init(struct zone *zone)
 	 * offset of a (static) per cpu variable into the per cpu area.
 	 */
 	zone->pageset = &boot_pageset;
+
+	if (populated_zone(zone))
+		printk(KERN_DEBUG "  %s zone: %lu pages, LIFO batch:%u\n",
+			zone->name, zone->present_pages,
+					 zone_batchsize(zone));
 }
 
 static void __meminit zone_init_internals(struct zone *zone, enum zone_type idx, int nid,
@@ -1031,35 +1016,6 @@ static void __init free_area_init_core(struct pglist_data *pgdat)
 	}
 }
 
-/**
- * get_pfn_range_for_nid - Return the start and end page frames for a node
- * @nid: The nid to return the range for. If MAX_NUMNODES, the min and max PFN are returned.
- * @start_pfn: Passed by reference. On return, it will have the node start_pfn.
- * @end_pfn: Passed by reference. On return, it will have the node end_pfn.
- *
- * It returns the start and end page frame of a node based on information
- * provided by memblock_set_node(). If called for a node
- * with no available memory, a warning is printed and the start and end
- * PFNs will be 0.
- */
-void __init get_pfn_range_for_nid(unsigned int nid,
-			unsigned long *start_pfn, unsigned long *end_pfn)
-{
-	unsigned long this_start_pfn, this_end_pfn;
-	int i;
-
-	*start_pfn = -1UL;
-	*end_pfn = 0;
-
-	for_each_mem_pfn_range(i, nid, &this_start_pfn, &this_end_pfn, NULL) {
-		*start_pfn = min(*start_pfn, this_start_pfn);
-		*end_pfn = max(*end_pfn, this_end_pfn);
-	}
-
-	if (*start_pfn == -1UL)
-		*start_pfn = 0;
-}
-
 /*
  * The zone ranges provided by the architecture do not include ZONE_MOVABLE
  * because it is sized independent of architecture. Unlike the other zones,
@@ -1077,6 +1033,10 @@ static void __init adjust_zone_range_for_zone_movable(int nid,
 					unsigned long *zone_start_pfn,
 					unsigned long *zone_end_pfn)
 {
+	/* Only adjust if ZONE_MOVABLE is on this node */
+	if (zone_movable_pfn[nid]) {
+		;/* TODO */
+	}
 }
 
 /*
@@ -1208,9 +1168,6 @@ void __init free_area_init_node(int nid, unsigned long *zones_size,
 	struct pglist_data *pgdat = NODE_DATA(nid);
 	unsigned long start_pfn = 0;
 	unsigned long end_pfn = 0;
-
-	/* pg_data_t should be reset to zero when it's allocated */
-	WARN_ON(pgdat->nr_zones || pgdat->kswapd_classzone_idx);
 
 	pgdat->node_id = nid;
 	pgdat->node_start_pfn = node_start_pfn;

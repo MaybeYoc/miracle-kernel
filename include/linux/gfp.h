@@ -1,6 +1,8 @@
 #ifndef __LINUX_GFP_H
 #define __LINUX_GFP_H
 
+#include <linux/numa.h>
+#include <linux/nodemask.h>
 #include <linux/mmdebug.h>
 #include <linux/stddef.h>
 #include <linux/linkage.h>

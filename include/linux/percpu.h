@@ -7,9 +7,11 @@
 #include <linux/cpumask.h>
 #include <linux/printk.h>
 #include <linux/init.h>
+
 #include <asm/percpu.h>
 
-#define PERCPU_MODULE_RESERVE		0
+/* minimum unit size, also is the maximum supported allocation size */
+#define PCPU_MIN_UNIT_SIZE		PFN_ALIGN(32 << 10)
 
 /* minimum allocation size and shift in bytes */
 #define PCPU_MIN_ALLOC_SHIFT		2

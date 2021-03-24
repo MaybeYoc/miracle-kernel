@@ -57,7 +57,8 @@ static int __init early_mem(char *p)
 early_param("mem", early_mem);
 
 static int __init early_init_dt_scan_usablemem(unsigned long node,
-		const char *uname, int depth, void *data)
+					       const char *uname, int depth,
+					       void *data)
 {
 	struct memblock_region *usablemem = data;
 	const __be32 *reg;
@@ -108,8 +109,8 @@ void __init arm64_memblock_init(void)
 	/*
 	 * Select a suitable value for the base of physical memory.
 	 */
-	memstart_addr = round_down(memblock_start_of_DRAM(),
-				   ARM64_MEMSTART_ALIGN);
+	memstart_addr =
+		round_down(memblock_start_of_DRAM(), ARM64_MEMSTART_ALIGN);
 
 	/*
 	 * Remove the memory that we will not be able to cover with the
@@ -117,11 +118,13 @@ void __init arm64_memblock_init(void)
 	 * high in memory.
 	 */
 	memblock_remove(max_t(u64, memstart_addr + linear_region_size,
-			__pa_symbol(_end)), ULLONG_MAX);
+			      __pa_symbol(_end)),
+			ULLONG_MAX);
 	if (memstart_addr + linear_region_size < memblock_end_of_DRAM()) {
 		/* ensure that memstart_addr remains sufficiently aligned */
-		memstart_addr = round_up(memblock_end_of_DRAM() - linear_region_size,
-					 ARM64_MEMSTART_ALIGN);
+		memstart_addr =
+			round_up(memblock_end_of_DRAM() - linear_region_size,
+				 ARM64_MEMSTART_ALIGN);
 		memblock_remove(0, memstart_addr);
 	}
 
@@ -153,9 +156,9 @@ void __init arm64_memblock_init(void)
 		 * always access both.
 		 */
 		if (WARN(base < memblock_start_of_DRAM() ||
-			 base + size > memblock_start_of_DRAM() +
-				       linear_region_size,
-			"initrd not fully accessible via the linear mapping -- please check your bootloader ...\n")) {
+				 base + size > memblock_start_of_DRAM() +
+						       linear_region_size,
+			 "initrd not fully accessible via the linear mapping -- please check your bootloader ...\n")) {
 			initrd_start = 0;
 		} else {
 			memblock_remove(base, size); /* clear MEMBLOCK_ flags */
@@ -180,7 +183,7 @@ void __init arm64_memblock_init(void)
 
 static void __init zone_sizes_init(unsigned long min, unsigned long max)
 {
-	unsigned long max_zone_pfns[MAX_NR_ZONES]  = {0};
+	unsigned long max_zone_pfns[MAX_NR_ZONES] = { 0 };
 
 	max_zone_pfns[ZONE_NORMAL] = max;
 
@@ -195,6 +198,8 @@ void __init bootmem_init(void)
 	max = PFN_DOWN(memblock_end_of_DRAM());
 
 	early_memtest(min << PAGE_SHIFT, max << PAGE_SHIFT);
+
+	max_pfn = max_low_pfn = max;
 
 	arm64_numa_init();
 
@@ -228,9 +233,8 @@ void __init mem_init(void)
 
 void free_initmem(void)
 {
-	free_reserved_area(lm_alias(__init_begin),
-			   lm_alias(__init_end),
-			   0, "unused kernel");
+	free_reserved_area(lm_alias(__init_begin), lm_alias(__init_end), 0,
+			   "unused kernel");
 	/*
 	 * Unmap the __init region but leave the VM area in place. This
 	 * prevents the region from being reused for kernel modules, which
@@ -242,6 +246,6 @@ void free_initmem(void)
 
 void __init free_initrd_mem(unsigned long start, unsigned long end)
 {
-		free_reserved_area((void *)start, (void *)end, 0, "initrd");
-		memblock_free(__virt_to_phys(start), end - start);
+	free_reserved_area((void *)start, (void *)end, 0, "initrd");
+	memblock_free(__virt_to_phys(start), end - start);
 }

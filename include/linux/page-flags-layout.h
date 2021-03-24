@@ -26,7 +26,21 @@
 
 #define ZONES_WIDTH		ZONES_SHIFT
 
-#if ZONES_WIDTH+NODES_SHIFT <= BITS_PER_LONG - NR_PAGEFLAGS
+#if MIGRATE_TYPES < 2
+#define MIGRATE_SHIFT 0
+#elif MIGRATE_TYPES <= 2
+#define MIGRATE_SHIFT 1
+#elif MIGRATE_TYPES <= 4
+#define MIGRATE_SHIFT 2
+#elif MIGRATE_TYPES <= 8
+#define MIGRATE_SHIFT 3
+#else
+#error MIGRATE_SHIFT -- too many migrate configured adjust calculation
+#endif
+
+#define MIGRATE_WIDTH MIGRATE_SHIFT
+
+#if ZONES_WIDTH+NODES_SHIFT+MIGRATE_WIDTH <= BITS_PER_LONG - NR_PAGEFLAGS
 #define NODES_WIDTH		NODES_SHIFT
 #else
 #error "Vmemmap: No space for nodes field in page flags"

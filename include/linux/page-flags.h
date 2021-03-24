@@ -8,8 +8,8 @@
 
 #include <linux/types.h>
 #include <linux/mmdebug.h>
+#include <linux/page-types.h>
 #ifndef __GENERATING_BOUNDS_H
-#include <linux/mm_types.h>
 #include <generated/bounds.h>
 #endif /* !__GENERATING_BOUNDS_H */
 
@@ -84,7 +84,6 @@ enum pageflags {
 	PG_private_2,		/* If pagecache, has fs aux data */
 	PG_writeback,		/* Page is under writeback */
 	PG_head,		/* A head page */
-	PG_mappedtodisk,	/* Has blocks allocated on-disk */
 	PG_reclaim,		/* To be reclaimed asap */
 	PG_swapbacked,		/* Page is backed by RAM/swap */
 	PG_unevictable,		/* Page is "unevictable"  */
@@ -150,6 +149,10 @@ static inline int PagePoisoned(const struct page *page)
 	return page->flags == PAGE_POISON_PATTERN;
 }
 
+static inline void page_init_poison(struct page *page, size_t size)
+{
+}
+
 /*
  * Page flags policies wrt compound pages
  *
@@ -187,6 +190,118 @@ static inline int PagePoisoned(const struct page *page)
 #define PF_NO_COMPOUND(page, enforce) ({				\
 		VM_BUG_ON_PGFLAGS(enforce && PageCompound(page), page);	\
 		PF_POISONED_CHECK(page); })
+
+/*
+ * Macros to create function definitions for page flags
+ */
+#define TESTPAGEFLAG(uname, lname, policy)				\
+static __always_inline int Page##uname(struct page *page)		\
+	{ return test_bit(PG_##lname, &policy(page, 0)->flags); }
+
+#define SETPAGEFLAG(uname, lname, policy)				\
+static __always_inline void SetPage##uname(struct page *page)		\
+	{ set_bit(PG_##lname, &policy(page, 1)->flags); }
+
+#define CLEARPAGEFLAG(uname, lname, policy)				\
+static __always_inline void ClearPage##uname(struct page *page)		\
+	{ clear_bit(PG_##lname, &policy(page, 1)->flags); }
+
+#define __SETPAGEFLAG(uname, lname, policy)				\
+static __always_inline void __SetPage##uname(struct page *page)		\
+	{ __set_bit(PG_##lname, &policy(page, 1)->flags); }
+
+#define __CLEARPAGEFLAG(uname, lname, policy)				\
+static __always_inline void __ClearPage##uname(struct page *page)	\
+	{ __clear_bit(PG_##lname, &policy(page, 1)->flags); }
+
+#define TESTSETFLAG(uname, lname, policy)				\
+static __always_inline int TestSetPage##uname(struct page *page)	\
+	{ return test_and_set_bit(PG_##lname, &policy(page, 1)->flags); }
+
+#define TESTCLEARFLAG(uname, lname, policy)				\
+static __always_inline int TestClearPage##uname(struct page *page)	\
+	{ return test_and_clear_bit(PG_##lname, &policy(page, 1)->flags); }
+
+#define PAGEFLAG(uname, lname, policy)					\
+	TESTPAGEFLAG(uname, lname, policy)				\
+	SETPAGEFLAG(uname, lname, policy)				\
+	CLEARPAGEFLAG(uname, lname, policy)
+
+#define __PAGEFLAG(uname, lname, policy)				\
+	TESTPAGEFLAG(uname, lname, policy)				\
+	__SETPAGEFLAG(uname, lname, policy)				\
+	__CLEARPAGEFLAG(uname, lname, policy)
+
+#define TESTSCFLAG(uname, lname, policy)				\
+	TESTSETFLAG(uname, lname, policy)				\
+	TESTCLEARFLAG(uname, lname, policy)
+
+
+__PAGEFLAG(Locked, locked, PF_NO_TAIL)
+PAGEFLAG(Waiters, waiters, PF_ONLY_HEAD) __CLEARPAGEFLAG(Waiters, waiters, PF_ONLY_HEAD)
+PAGEFLAG(Error, error, PF_NO_COMPOUND) TESTCLEARFLAG(Error, error, PF_NO_COMPOUND)
+PAGEFLAG(Referenced, referenced, PF_HEAD)
+	TESTCLEARFLAG(Referenced, referenced, PF_HEAD)
+	__SETPAGEFLAG(Referenced, referenced, PF_HEAD)
+PAGEFLAG(Dirty, dirty, PF_HEAD) TESTSCFLAG(Dirty, dirty, PF_HEAD)
+	__CLEARPAGEFLAG(Dirty, dirty, PF_HEAD)
+PAGEFLAG(LRU, lru, PF_HEAD) __CLEARPAGEFLAG(LRU, lru, PF_HEAD)
+PAGEFLAG(Active, active, PF_HEAD) __CLEARPAGEFLAG(Active, active, PF_HEAD)
+	TESTCLEARFLAG(Active, active, PF_HEAD)
+PAGEFLAG(Workingset, workingset, PF_HEAD)
+	TESTCLEARFLAG(Workingset, workingset, PF_HEAD)
+__PAGEFLAG(Slab, slab, PF_NO_TAIL)
+__PAGEFLAG(SlobFree, slob_free, PF_NO_TAIL)
+PAGEFLAG(Checked, checked, PF_NO_COMPOUND)	   /* Used by some filesystems */
+
+/* Xen */
+PAGEFLAG(Pinned, pinned, PF_NO_COMPOUND)
+	TESTSCFLAG(Pinned, pinned, PF_NO_COMPOUND)
+PAGEFLAG(SavePinned, savepinned, PF_NO_COMPOUND);
+PAGEFLAG(Foreign, foreign, PF_NO_COMPOUND);
+
+PAGEFLAG(Reserved, reserved, PF_NO_COMPOUND)
+	__CLEARPAGEFLAG(Reserved, reserved, PF_NO_COMPOUND)
+	__SETPAGEFLAG(Reserved, reserved, PF_NO_COMPOUND)
+PAGEFLAG(SwapBacked, swapbacked, PF_NO_TAIL)
+	__CLEARPAGEFLAG(SwapBacked, swapbacked, PF_NO_TAIL)
+	__SETPAGEFLAG(SwapBacked, swapbacked, PF_NO_TAIL)
+
+/*
+ * Private page markings that may be used by the filesystem that owns the page
+ * for its own purposes.
+ * - PG_private and PG_private_2 cause releasepage() and co to be invoked
+ */
+PAGEFLAG(Private, private, PF_ANY) __SETPAGEFLAG(Private, private, PF_ANY)
+	__CLEARPAGEFLAG(Private, private, PF_ANY)
+PAGEFLAG(Private2, private_2, PF_ANY) TESTSCFLAG(Private2, private_2, PF_ANY)
+PAGEFLAG(OwnerPriv1, owner_priv_1, PF_ANY)
+	TESTCLEARFLAG(OwnerPriv1, owner_priv_1, PF_ANY)
+
+/*
+ * Only test-and-set exist for PG_writeback.  The unconditional operators are
+ * risky: they bypass page accounting.
+ */
+TESTPAGEFLAG(Writeback, writeback, PF_NO_TAIL)
+	TESTSCFLAG(Writeback, writeback, PF_NO_TAIL)
+
+/* PG_readahead is only used for reads; PG_reclaim is only for writes */
+PAGEFLAG(Reclaim, reclaim, PF_NO_TAIL)
+	TESTCLEARFLAG(Reclaim, reclaim, PF_NO_TAIL)
+PAGEFLAG(Readahead, reclaim, PF_NO_COMPOUND)
+	TESTCLEARFLAG(Readahead, reclaim, PF_NO_COMPOUND)
+
+__PAGEFLAG(Head, head, PF_ANY) CLEARPAGEFLAG(Head, head, PF_ANY)
+
+static __always_inline void set_compound_head(struct page *page, struct page *head)
+{
+	WRITE_ONCE(page->compound_head, (unsigned long)head + 1);
+}
+
+static __always_inline void clear_compound_head(struct page *page)
+{
+	WRITE_ONCE(page->compound_head, 0);
+}
 
 /*
  * For pages that are never mapped to userspace (and aren't PageSlab),
@@ -295,166 +410,6 @@ PAGE_TYPE_OPS(Table, table)
 static inline int page_has_private(struct page *page)
 {
 	return !!(page->flags & PAGE_FLAGS_PRIVATE);
-}
-
-/*
- * Macros to create function definitions for page flags
- */
-#define TESTPAGEFLAG(uname, lname, policy)				\
-static __always_inline int Page##uname(struct page *page)		\
-	{ return test_bit(PG_##lname, &policy(page, 0)->flags); }
-
-#define SETPAGEFLAG(uname, lname, policy)				\
-static __always_inline void SetPage##uname(struct page *page)		\
-	{ set_bit(PG_##lname, &policy(page, 1)->flags); }
-
-#define CLEARPAGEFLAG(uname, lname, policy)				\
-static __always_inline void ClearPage##uname(struct page *page)		\
-	{ clear_bit(PG_##lname, &policy(page, 1)->flags); }
-
-#define __SETPAGEFLAG(uname, lname, policy)				\
-static __always_inline void __SetPage##uname(struct page *page)		\
-	{ __set_bit(PG_##lname, &policy(page, 1)->flags); }
-
-#define __CLEARPAGEFLAG(uname, lname, policy)				\
-static __always_inline void __ClearPage##uname(struct page *page)	\
-	{ __clear_bit(PG_##lname, &policy(page, 1)->flags); }
-
-#define TESTSETFLAG(uname, lname, policy)				\
-static __always_inline int TestSetPage##uname(struct page *page)	\
-	{ return test_and_set_bit(PG_##lname, &policy(page, 1)->flags); }
-
-#define TESTCLEARFLAG(uname, lname, policy)				\
-static __always_inline int TestClearPage##uname(struct page *page)	\
-	{ return test_and_clear_bit(PG_##lname, &policy(page, 1)->flags); }
-
-#define PAGEFLAG(uname, lname, policy)					\
-	TESTPAGEFLAG(uname, lname, policy)				\
-	SETPAGEFLAG(uname, lname, policy)				\
-	CLEARPAGEFLAG(uname, lname, policy)
-
-#define __PAGEFLAG(uname, lname, policy)				\
-	TESTPAGEFLAG(uname, lname, policy)				\
-	__SETPAGEFLAG(uname, lname, policy)				\
-	__CLEARPAGEFLAG(uname, lname, policy)
-
-#define TESTSCFLAG(uname, lname, policy)				\
-	TESTSETFLAG(uname, lname, policy)				\
-	TESTCLEARFLAG(uname, lname, policy)
-
-#define TESTPAGEFLAG_FALSE(uname)					\
-static inline int Page##uname(const struct page *page) { return 0; }
-
-#define SETPAGEFLAG_NOOP(uname)						\
-static inline void SetPage##uname(struct page *page) {  }
-
-#define CLEARPAGEFLAG_NOOP(uname)					\
-static inline void ClearPage##uname(struct page *page) {  }
-
-#define __CLEARPAGEFLAG_NOOP(uname)					\
-static inline void __ClearPage##uname(struct page *page) {  }
-
-#define TESTSETFLAG_FALSE(uname)					\
-static inline int TestSetPage##uname(struct page *page) { return 0; }
-
-#define TESTCLEARFLAG_FALSE(uname)					\
-static inline int TestClearPage##uname(struct page *page) { return 0; }
-
-#define PAGEFLAG_FALSE(uname) TESTPAGEFLAG_FALSE(uname)			\
-	SETPAGEFLAG_NOOP(uname) CLEARPAGEFLAG_NOOP(uname)
-
-#define TESTSCFLAG_FALSE(uname)						\
-	TESTSETFLAG_FALSE(uname) TESTCLEARFLAG_FALSE(uname)
-
-__PAGEFLAG(Head, head, PF_ANY) CLEARPAGEFLAG(Head, head, PF_ANY)
-
-__PAGEFLAG(Slab, slab, PF_NO_TAIL)
-__PAGEFLAG(SlobFree, slob_free, PF_NO_TAIL)
-
-PAGEFLAG(Active, active, PF_HEAD) __CLEARPAGEFLAG(Active, active, PF_HEAD)
-	TESTCLEARFLAG(Active, active, PF_HEAD)
-
-PAGEFLAG(Reserved, reserved, PF_NO_COMPOUND)
-	__CLEARPAGEFLAG(Reserved, reserved, PF_NO_COMPOUND)
-	__SETPAGEFLAG(Reserved, reserved, PF_NO_COMPOUND)
-
-/*
- * If network-based swap is enabled, sl*b must keep track of whether pages
- * were allocated from pfmemalloc reserves.
- */
-static inline int PageSlabPfmemalloc(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageSlab(page), page);
-	return PageActive(page);
-}
-
-static inline void SetPageSlabPfmemalloc(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageSlab(page), page);
-	SetPageActive(page);
-}
-
-static inline void __ClearPageSlabPfmemalloc(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageSlab(page), page);
-	__ClearPageActive(page);
-}
-
-static inline void ClearPageSlabPfmemalloc(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageSlab(page), page);
-	ClearPageActive(page);
-}
-
-/*
- * PageDoubleMap indicates that the compound page is mapped with PTEs as well
- * as PMDs.
- *
- * This is required for optimization of rmap operations for THP: we can postpone
- * per small page mapcount accounting (and its overhead from atomic operations)
- * until the first PMD split.
- *
- * For the page PageDoubleMap means ->_mapcount in all sub-pages is offset up
- * by one. This reference will go away with last compound_mapcount.
- *
- * See also __split_huge_pmd_locked() and page_remove_anon_compound_rmap().
- */
-static inline int PageDoubleMap(struct page *page)
-{
-	return PageHead(page) && test_bit(PG_double_map, &page[1].flags);
-}
-
-static inline void SetPageDoubleMap(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageHead(page), page);
-	set_bit(PG_double_map, &page[1].flags);
-}
-
-static inline void ClearPageDoubleMap(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageHead(page), page);
-	clear_bit(PG_double_map, &page[1].flags);
-}
-static inline int TestSetPageDoubleMap(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageHead(page), page);
-	return test_and_set_bit(PG_double_map, &page[1].flags);
-}
-
-static inline int TestClearPageDoubleMap(struct page *page)
-{
-	VM_BUG_ON_PAGE(!PageHead(page), page);
-	return test_and_clear_bit(PG_double_map, &page[1].flags);
-}
-
-static __always_inline void set_compound_head(struct page *page, struct page *head)
-{
-	WRITE_ONCE(page->compound_head, (unsigned long)head + 1);
-}
-
-static __always_inline void clear_compound_head(struct page *page)
-{
-	WRITE_ONCE(page->compound_head, 0);
 }
 
 #endif /* !__GENERATING_BOUNDS_H */

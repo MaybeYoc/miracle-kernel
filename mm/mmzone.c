@@ -12,33 +12,16 @@
 
 struct pglist_data *first_online_pgdat(void)
 {
-	int nid;
-
-	for (nid = 0; nid < MAX_NUMNODES; nid++)
-		if (get_node_online(nid))
-			return NODE_DATA(nid);
-
-	return NULL;
+	return NODE_DATA(first_online_node);
 }
 
 struct pglist_data *next_online_pgdat(struct pglist_data *pgdat)
 {
-	int i, nid;
-
-	if (!pgdat)
-		return NULL;
-
-	nid = pgdat->node_id + 1;
+	int nid = next_online_node(pgdat->node_id);
 
 	if (nid == MAX_NUMNODES)
 		return NULL;
-	
-	for (i = nid; i < MAX_NUMNODES; i++) {
-		if (get_node_online(i))
-			return NODE_DATA(i);
-	}
-
-	return NULL;
+	return NODE_DATA(nid);
 }
 
 struct zone *next_zone(struct zone *zone)
