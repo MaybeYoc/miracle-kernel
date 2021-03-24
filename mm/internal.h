@@ -61,4 +61,7 @@ static inline unsigned int page_order(struct page *page)
  */
 #define page_order_unsafe(page)		READ_ONCE(page_private(page))
 
+extern void memblock_free_pages(struct page *page, unsigned long pfn,
+					unsigned int order);
+
 #endif	/* __MM_INTERNAL_H */

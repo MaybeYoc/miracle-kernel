@@ -17,6 +17,7 @@
 #include <linux/string.h>
 #include <linux/moduleparam.h>
 #include <linux/mm.h>
+#include <linux/percpu.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -81,7 +82,16 @@ asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 
+	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);
+
+	setup_nr_cpu_ids();
+	setup_per_cpu_areas();
+
+	/* zonelist build */
+
+	pr_notice("Kernel command line: %s\n", boot_command_line);
+	parse_early_param();
 
 	mm_init();
 

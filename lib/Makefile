@@ -2,9 +2,9 @@
 #
 # Makefile for some libs needed in the kernel.
 #
-obj-y += bitmap.o find_last_bit.o find_next_bit.o llist.o  \
-		list_sort.o kstrtox.o hexdump.o div64.o string_helpers.o	\
-		memweight.o sort.o
+obj-y += bitmap.o llist.o list_sort.o kstrtox.o 	\
+		hexdump.o div64.o string_helpers.o	\
+		memweight.o sort.o find_bit.o
 
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o
 obj-$(CONFIG_GENERIC_HWEIGHT) += hweight.o
@@ -12,6 +12,8 @@ obj-$(CONFIG_CRC32)	+= crc32.o
 
 lib-y := ctype.o string.o vsprintf.o int_sqrt.o cmdline.o	\
 		rbtree.o
+
+lib-$(CONFIG_SMP) += cpumask.o
 
 ifneq ($(CONFIG_HAVE_DEC_LOCK),y)
 lib-y += dec_and_lock.o

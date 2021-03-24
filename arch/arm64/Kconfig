@@ -589,6 +589,10 @@ config NODES_SHIFT
 	  Specify the maximum number of NUMA Nodes available on the target
 	  system.  Increases memory reserved to accommodate various tables.
 
+config HAVE_SETUP_PER_CPU_AREA
+	def_bool y
+	depends on NUMA
+
 source "kernel/Kconfig.hz"
 
 config ARCH_HAS_CACHE_LINE_SIZE

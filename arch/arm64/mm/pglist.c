@@ -10,6 +10,8 @@
 
 #include <asm/memory.h>
 
+cpumask_var_t node_to_cpumask_map[MAX_NUMNODES];
+
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
 nodemask_t numa_nodes_parsed __initdata;
 
@@ -158,4 +160,11 @@ void __init arm64_numa_init(void)
 	numa_init(dummy_numa_init);
 #endif
 
+}
+
+//unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+
+void __init setup_per_cpu_areas(void)
+{
+	
 }

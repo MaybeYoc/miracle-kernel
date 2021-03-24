@@ -451,6 +451,18 @@ static inline void memblock_clear_region_flags(struct memblock_region *r,
 
 unsigned long memblock_free_all(void);
 
+static inline void __init memblock_free_early(phys_addr_t base,
+					      phys_addr_t size)
+{
+	memblock_free(base, size);
+}
+
+static inline void __init memblock_free_early_nid(phys_addr_t base,
+						  phys_addr_t size, int nid)
+{
+	memblock_free(base, size);
+}
+
 void __memblock_free_late(phys_addr_t base, phys_addr_t size);
 
 static inline void __init memblock_free_late(phys_addr_t base, phys_addr_t size)

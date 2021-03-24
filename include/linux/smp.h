@@ -11,12 +11,15 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/init.h>
+
 #include <asm/smp.h>
 
 #ifdef CONFIG_SMP
 void kick_all_cpus_sync(void);
+extern void __init setup_nr_cpu_ids(void);
 #else
 static inline void kick_all_cpus_sync(void) {  }
+static inline void setup_nr_cpu_ids(void) { }
 #endif
 
 /*

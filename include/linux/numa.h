@@ -2,8 +2,6 @@
 #ifndef _LINUX_NUMA_H
 #define _LINUX_NUMA_H
 
-#include <asm/numa.h>
-
 #ifdef CONFIG_NODES_SHIFT
 #define NODES_SHIFT     CONFIG_NODES_SHIFT
 #else
@@ -24,5 +22,7 @@ static inline int numa_node_id(void)
 	return 0;
 }
 #endif
+
+#include <asm/numa.h>
 
 #endif /* _LINUX_NUMA_H */

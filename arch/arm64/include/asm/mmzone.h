@@ -3,9 +3,9 @@
 #define __ASM_MMZONE_H
 
 #include <linux/init.h>
+#include <linux/numa.h>
 
 #include <asm/page.h>
-#include <asm/numa.h>
 
 extern struct pglist_data *node_data[];
 #define NODE_DATA(nid)		(node_data[(nid)])
