@@ -170,12 +170,12 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
 extern gfp_t gfp_allowed_mask;
 
 struct page *
-__alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid);
-
+__alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
+							nodemask_t *nodemask);
 static inline struct page *
 __alloc_pages(gfp_t gfp_mask, unsigned int order, int preferred_nid)
 {
-	return __alloc_pages_nodemask(gfp_mask, order, preferred_nid);
+	return __alloc_pages_nodemask(gfp_mask, order, preferred_nid, NULL);
 }
 
 /*
@@ -207,6 +207,7 @@ static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 
 #define alloc_pages(gfp_mask, order) \
 		alloc_pages_node(numa_node_id(), gfp_mask, order)
+#define alloc_page(gfp_mask) alloc_pages(gfp_mask, 0)
 
 extern void __free_pages(struct page *page, unsigned int order);
 extern void free_pages(unsigned long addr, unsigned int order);

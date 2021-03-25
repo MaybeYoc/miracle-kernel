@@ -132,6 +132,9 @@ static inline struct page *virt_to_head_page(const void *x)
 	return compound_head(page);
 }
 
+extern void reserve_bootmem_region(phys_addr_t start, phys_addr_t end);
+extern void setup_per_cpu_pageset(void);
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_MM_H */

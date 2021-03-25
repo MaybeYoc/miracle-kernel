@@ -50,6 +50,10 @@
 #define __exitdata		__section(.exit.data)
 #define __exit_call		__used __section(.exitcall.exit)
 
+#define __ref            __section(.ref.text) noinline
+#define __refdata        __section(.ref.data)
+#define __refconst       __section(.ref.rodata)
+
 #define __exitused  __used
 
 #define __exit          __section(.exit.text) __exitused __cold notrace

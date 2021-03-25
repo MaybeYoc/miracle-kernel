@@ -294,6 +294,8 @@ extern struct zone *next_zone(struct zone *zone);
 
 #define pfn_valid_within(pfn) pfn_valid(pfn)
 
+void build_all_zonelists(pg_data_t *pgdat);
+
 #endif /* !__GENERATING_BOUNDS.H */
 #endif /* !__ASSEMBLY__ */
 #endif /* _LINUX_MMZONE_H */

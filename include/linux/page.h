@@ -131,4 +131,6 @@ static inline int put_page_testzero(struct page *page)
 	return page_ref_dec_and_test(page);
 }
 
+static inline bool page_is_guard(struct page *page) { return false; }
+
 #endif /* __LINUX_PAGE_H_ */

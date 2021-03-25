@@ -15,4 +15,10 @@ struct file {
 	struct path		f_path;
 };
 
+struct address_space {
+	gfp_t			gfp_mask;
+	unsigned long		nrpages;
+	unsigned long		flags;
+} __attribute__((aligned(sizeof(long)))) __randomize_layout;;
+
 #endif /* _LINUX_FS_H */

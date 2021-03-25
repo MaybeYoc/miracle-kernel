@@ -53,7 +53,11 @@
  *   setup the first chunk containing the kernel static percpu area
  */
 #include <linux/bitmap.h>
+#include <linux/gfp.h>
 #include <linux/percpu.h>
+#include <linux/memblock.h>
+
+#include <asm/sections.h>
 
 #ifdef CONFIG_SMP
 
@@ -70,7 +74,118 @@
  * on the physical linear memory mapping which uses large page
  * mappings on applicable archs.
  */
-//unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+unsigned long static_offsets __read_mostly;
+unsigned long dy_offsets __read_mostly;
+unsigned long dy_addr_start __read_mostly;
+
+static unsigned long current_dy_addr;
+static unsigned long current_dy_size;
+
+/**
+ * free_percpu - free percpu area
+ * @ptr: pointer to area to free
+ *
+ * Free percpu area @ptr.
+ *
+ * CONTEXT:
+ * Can be called from atomic context.
+ */
+void free_percpu(void __percpu *ptr)
+{
+	WARN(1, "percpu free address %p\n", ptr);
+}
+
+/**
+ * pcpu_alloc - the percpu allocator
+ * @size: size of area to allocate in bytes
+ * @align: alignment of area (max PAGE_SIZE)
+ * @reserved: allocate from the reserved chunk if available
+ * @gfp: allocation flags
+ *
+ * Allocate percpu area of @size bytes aligned at @align.  If @gfp doesn't
+ * contain %GFP_KERNEL, the allocation is atomic. If @gfp has __GFP_NOWARN
+ * then no warning will be triggered on invalid or failed allocation
+ * requests.
+ *
+ * RETURNS:
+ * Percpu pointer to the allocated area on success, NULL on failure.
+ */
+static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+				 gfp_t gfp)
+{
+	void __percpu *addr;
+
+	/* TODO */
+	size = SZ_16K;
+	/*
+	 * There is now a minimum allocation size of PCPU_MIN_ALLOC_SIZE,
+	 * therefore alignment must be a minimum of that many bytes.
+	 * An allocation may have internal fragmentation from rounding up
+	 * of up to PCPU_MIN_ALLOC_SIZE - 1 bytes.
+	 */
+	if (unlikely(align < PCPU_MIN_ALLOC_SIZE))
+		align = PCPU_MIN_ALLOC_SIZE;
+
+	size = ALIGN(size, align);
+	if (unlikely(!size || size > PCPU_MIN_UNIT_SIZE || align > PAGE_SIZE ||
+		     !is_power_of_2(align))) {
+		WARN(1, "illegal size (%zu) or align (%zu) for percpu allocation\n",
+		     size, align);
+		return NULL;
+	}
+
+	if (size > current_dy_size) {
+		WARN(1, "current not enought percpu alloc current 0x%lx size 0x%lx\n",
+					current_dy_size, size);
+		return NULL;
+	}
+
+	addr = (void __percpu *)current_dy_addr;
+
+	size = ALIGN(size, SMP_CACHE_BYTES);
+	current_dy_addr = current_dy_addr + size;
+	current_dy_size -= size;
+
+	return addr;
+}
+
+/**
+ * __alloc_percpu - allocate dynamic percpu area
+ * @size: size of area to allocate in bytes
+ * @align: alignment of area (max PAGE_SIZE)
+ *
+ * Equivalent to __alloc_percpu_gfp(size, align, %GFP_KERNEL).
+ */
+void __percpu *__alloc_percpu(size_t size, size_t align)
+{
+	return pcpu_alloc(size, align, false, GFP_KERNEL);
+}
+
+void __init setup_per_cpu_areas(void)
+{
+	unsigned int cpu;
+	unsigned long offset;
+	void *virt;
+	unsigned long re = 0;
+
+	static_offsets = ALIGN(__per_cpu_end - __per_cpu_start, SMP_CACHE_BYTES);
+	dy_offsets = ALIGN(PERCPU_DYNAMIC_EARLY_SLOTS * PERCPU_DYNAMIC_EARLY_SIZE, SMP_CACHE_BYTES);
+	offset = memblock_phys_alloc((static_offsets + dy_offsets) * NR_CPUS, SMP_CACHE_BYTES);
+	virt = phys_to_virt(offset);
+
+	offset = (unsigned long)virt - (unsigned long)__per_cpu_load;
+	dy_addr_start = (unsigned long)__per_cpu_load + static_offsets;
+	current_dy_addr = dy_addr_start;
+	current_dy_size = dy_offsets;
+
+	for_each_possible_cpu(cpu)
+		__per_cpu_offset[cpu] = offset + (static_offsets + dy_offsets) * cpu;
+
+	pr_info("Embedded %zu pages/cpu s%zu r%zu d%zu u%zu\n",
+		(static_offsets + dy_offsets) * NR_CPUS/PAGE_SIZE + 1, static_offsets, re,
+		dy_offsets * NR_CPUS, static_offsets + dy_offsets);
+}
 
 #endif	/* CONFIG_HAVE_SETUP_PER_CPU_AREA */
 

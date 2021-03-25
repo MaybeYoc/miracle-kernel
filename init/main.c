@@ -86,6 +86,8 @@ asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 
+	system_state = SYSTEM_BOOTING;
+
 	smp_setup_processor_id();
 	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);
@@ -93,12 +95,14 @@ asmlinkage __visible void __init start_kernel(void)
 	setup_nr_cpu_ids();
 	setup_per_cpu_areas();
 
-	/* zonelist build */
+	build_all_zonelists(NULL);
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
 	parse_early_param();
 
 	mm_init();
+
+	setup_per_cpu_pageset();
 
 	while(1);
 }
