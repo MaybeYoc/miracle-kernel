@@ -93,6 +93,12 @@ static inline void cpu_panic_kernel(void)
 	cpu_park_loop();
 }
 
+/*
+ * Discover the set of possible CPUs and determine their
+ * SMP operations.
+ */
+extern void smp_init_cpus(void);
+
 #endif /* ifndef __ASSEMBLY__ */
 
 #endif /* ifndef __ASM_SMP_H */

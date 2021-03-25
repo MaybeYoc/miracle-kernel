@@ -35,3 +35,16 @@ asmlinkage notrace void secondary_start_kernel(void)
 {
 
 }
+
+/*
+ * Enumerate the possible CPU set from the device tree or ACPI and build the
+ * cpu logical map array containing MPIDR values related to logical
+ * cpus. Assumes that cpu_logical_map(0) has already been initialized.
+ */
+void __init smp_init_cpus(void)
+{
+	int i;
+
+	for (i = 0; i < 8; i++)
+		set_cpu_possible(i, true);
+}

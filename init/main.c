@@ -55,6 +55,10 @@ void __init parse_early_options(char *cmdline)
 		   do_early_param);
 }
 
+void __init __weak smp_setup_processor_id(void)
+{
+}
+
 /* Arch code calls this early on, or if not, just before other parsing. */
 void __init parse_early_param(void)
 {
@@ -82,6 +86,7 @@ asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 
+	smp_setup_processor_id();
 	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);
 

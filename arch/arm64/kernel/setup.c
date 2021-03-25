@@ -60,6 +60,20 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	dump_stack_set_arch_desc("%s (DT)", name);
 }
 
+void __init smp_setup_processor_id(void)
+{
+	u64 mpidr = read_cpuid_mpidr() & MPIDR_HWID_BITMASK;
+
+	/*
+	 * clear __my_cpu_offset on boot CPU to avoid hang caused by
+	 * using percpu variable early, for example, lockdep will
+	 * access percpu variable inside lock_release
+	 */
+	set_my_cpu_offset(0);
+	pr_info("Booting Linux on physical CPU 0x%010lx [0x%08x]\n",
+		(unsigned long)mpidr, read_cpuid_id());
+}
+
 void __init setup_arch(char **cmdline_p)
 {
 	init_mm.start_code = (unsigned long) _text;
@@ -96,6 +110,8 @@ void __init setup_arch(char **cmdline_p)
 	unflatten_device_tree();
 
 	bootmem_init();
+
+	smp_init_cpus();
 
 	if (boot_args[1] || boot_args[2] || boot_args[3]) {
 		pr_err("WARNING: x1-x3 nonzero in violation of boot protocol:\n"

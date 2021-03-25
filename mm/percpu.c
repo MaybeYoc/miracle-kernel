@@ -70,7 +70,7 @@
  * on the physical linear memory mapping which uses large page
  * mappings on applicable archs.
  */
-unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+//unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
 
 #endif	/* CONFIG_HAVE_SETUP_PER_CPU_AREA */
 

@@ -8,6 +8,7 @@
 #include <linux/cache.h>
 #include <linux/mmzone.h>
 
+#include <asm/sections.h>
 #include <asm/memory.h>
 
 cpumask_var_t node_to_cpumask_map[MAX_NUMNODES];
@@ -159,12 +160,27 @@ void __init arm64_numa_init(void)
 #else
 	numa_init(dummy_numa_init);
 #endif
-
 }
 
-//unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
 
 void __init setup_per_cpu_areas(void)
 {
-	
+	unsigned int cpu;
+	unsigned long offset;
+	void *virt;
+	unsigned long pcpu_unit_offsets;
+	unsigned long rd = 0;
+
+	pcpu_unit_offsets = ALIGN(__per_cpu_end - __per_cpu_start, SMP_CACHE_BYTES);
+	offset = memblock_phys_alloc(pcpu_unit_offsets * NR_CPUS, SMP_CACHE_BYTES);
+	virt = phys_to_virt(offset);
+	offset = (unsigned long)virt - (unsigned long)__per_cpu_load;
+
+	for_each_possible_cpu(cpu)
+		__per_cpu_offset[cpu] = offset + pcpu_unit_offsets * cpu;
+
+	pr_info("Embedded %zu pages/cpu s%zu r%zu d%zu u%zu\n",
+		pcpu_unit_offsets * NR_CPUS/PAGE_SIZE + 1, pcpu_unit_offsets * NR_CPUS, rd,
+		rd, pcpu_unit_offsets);
 }
