@@ -2,6 +2,10 @@
 #ifndef _LINUX_NUMA_H
 #define _LINUX_NUMA_H
 
+#ifdef CONFIG_NUMA
+#error "***************Error: Now Not support NUMA******************"
+#endif
+
 #ifdef CONFIG_NODES_SHIFT
 #define NODES_SHIFT     CONFIG_NODES_SHIFT
 #else
