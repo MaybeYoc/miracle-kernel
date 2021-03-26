@@ -40,3 +40,26 @@ struct zone *next_zone(struct zone *zone)
 
 	return zone;
 }
+
+struct zone *first_populated_zoneidx(enum zone_type idx)
+{
+	struct zone *zone;
+
+	for_each_zone(zone)
+		if (populated_zone(zone) && zone_idx(zone) == idx)
+			return zone;
+
+	return NULL;
+}
+
+struct zone *next_populated_zoneidx(struct zone *zone)
+{
+	enum zone_type idx = zone_idx(zone);
+	struct pglist_data *pgdat;
+
+	for (pgdat = zone->zone_pgdat; pgdat; pgdat = next_online_pgdat(pgdat))
+		if (populated_zone(&pgdat->node_zones[idx]))
+			return &pgdat->node_zones[idx];
+	
+	return NULL;
+}

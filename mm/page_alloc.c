@@ -32,7 +32,6 @@ static DEFINE_PER_CPU(struct per_cpu_pageset, boot_pageset);
 static DEFINE_PER_CPU(struct per_cpu_nodestat, boot_nodestats);
 
 atomic_long_t _totalram_pages __read_mostly;
-gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
 
 #if MAX_NUMNODES > 1
 int nr_node_ids __read_mostly = MAX_NUMNODES;
@@ -756,6 +755,29 @@ void free_pages(unsigned long addr, unsigned int order)
 	}
 }
 
+static inline bool prepare_alloc_pages(gfp_t gfp_mask, unsigned int order,
+		int preferred_nid, nodemask_t *nodemask,
+		struct alloc_context *ac, gfp_t *allock_flags)
+{
+	ac->zoneidx = gfp_zone(gfp_mask);
+	ac->nodemask = nodemask;
+	ac->migratetype = gfpflags_to_migratetype(gfp_mask);
+
+	WARN_ON(ac->migratetype != MIGRATE_UNMOVABLE);
+
+	return true;
+}
+
+static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
+{
+	/*
+	 * The preferred zone is used for statistics but crucially it is
+	 * also used as the starting point for the zonelist iterator. It
+	 * may get reset for allocations that ignore memory policies.
+	 */
+
+}
+
 /*
  * This is the 'heart' of the zoned buddy allocator.
  */
@@ -764,6 +786,8 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 							nodemask_t *nodemask)
 {
 	struct page *page;
+	gfp_t alloc_flags;
+	struct alloc_context ac = {};
 
 	/*
 	 * There are several places where we assume that the order value is sane
@@ -774,9 +798,29 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 		return NULL;
 	}
 
-	gfp_mask &= gfp_allowed_mask;
+	alloc_flags = gfp_mask;
+	if (unlikely(!prepare_alloc_pages(gfp_mask, order, preferred_nid, nodemask,
+								&ac, &alloc_flags)))
+		return 	NULL;
+
+	finalise_ac(gfp_mask, &ac);
 
 	return page;
+}
+
+/*
+ * Common helper functions. Never use with __GFP_HIGHMEM because the returned
+ * address cannot represent highmem pages. Use alloc_pages and then kmap if
+ * you need to access high mem.
+ */
+unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order)
+{
+	struct page *page;
+
+	page = alloc_pages(gfp_mask, order);
+	if (!page)
+		return 0;
+	return (unsigned long) page_address(page);
 }
 
 static inline void init_reserved_page(unsigned long pfn)
@@ -811,21 +855,6 @@ void __meminit reserve_bootmem_region(phys_addr_t start, phys_addr_t end)
 			__SetPageReserved(page);
 		}
 	}
-}
-
-/*
- * Common helper functions. Never use with __GFP_HIGHMEM because the returned
- * address cannot represent highmem pages. Use alloc_pages and then kmap if
- * you need to access high mem.
- */
-unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order)
-{
-	struct page *page;
-
-	page = alloc_pages(gfp_mask & ~__GFP_HIGHMEM, order);
-	if (!page)
-		return 0;
-	return (unsigned long) page_address(page);
 }
 
 static void __init __free_pages_boot_core(struct page *page, unsigned int order)

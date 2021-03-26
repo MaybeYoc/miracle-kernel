@@ -64,4 +64,11 @@ static inline unsigned int page_order(struct page *page)
 extern void memblock_free_pages(struct page *page, unsigned long pfn,
 					unsigned int order);
 
+struct alloc_context {
+	nodemask_t *nodemask;
+	enum zone_type zoneidx;
+	struct zone *zone;
+	int migratetype;
+};
+
 #endif	/* __MM_INTERNAL_H */

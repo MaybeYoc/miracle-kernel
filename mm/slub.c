@@ -349,20 +349,15 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	int idx, order;
 	bool shuffle;
 
-	flags &= gfp_allowed_mask;
-
-	if (gfpflags_allow_blocking(flags))
-		local_irq_enable();
-
 	flags |= s->allocflags;
 
 	/*
 	 * Let the initial higher-order allocation fail under memory pressure
 	 * so we fall-back to the minimum order allocation.
 	 */
-	alloc_gfp = (flags | __GFP_NOWARN | __GFP_NORETRY) & ~__GFP_NOFAIL;
-	if ((alloc_gfp & __GFP_DIRECT_RECLAIM) && oo_order(oo) > oo_order(s->min))
-		alloc_gfp = (alloc_gfp | __GFP_NOMEMALLOC) & ~(__GFP_RECLAIM|__GFP_NOFAIL);
+	alloc_gfp = (flags ) ;
+	if ((alloc_gfp ) && oo_order(oo) > oo_order(s->min))
+		alloc_gfp = (alloc_gfp );
 
 	page = alloc_slab_page(s, alloc_gfp, node, oo);
 	if (unlikely(!page)) {
@@ -408,24 +403,22 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	page->inuse = page->objects;
 	page->frozen = 1;
 out:
-	if (gfpflags_allow_blocking(flags))
-		local_irq_disable();
 
 	return page;
 }
 
 static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 {
-	if (unlikely(flags & GFP_SLAB_BUG_MASK)) {
-		gfp_t invalid_mask = flags & GFP_SLAB_BUG_MASK;
-		flags &= ~GFP_SLAB_BUG_MASK;
+	if (unlikely(flags)) {
+		gfp_t invalid_mask = flags ;
+
 		pr_warn("Unexpected gfp: %#x (%pGg). Fixing up to gfp: %#x (%pGg). Fix your code!\n",
 				invalid_mask, &invalid_mask, flags, &flags);
 		dump_stack();
 	}
 
 	return allocate_slab(s,
-		flags & (GFP_RECLAIM_MASK | GFP_CONSTRAINT_MASK), node);
+		flags , node);
 }
 
 static void __free_slab(struct kmem_cache *s, struct page *page)

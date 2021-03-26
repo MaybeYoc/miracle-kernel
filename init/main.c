@@ -85,6 +85,7 @@ static void __init mm_init(void)
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
+struct zone *zone;
 
 	system_state = SYSTEM_BOOTING;
 
@@ -104,5 +105,9 @@ asmlinkage __visible void __init start_kernel(void)
 
 	setup_per_cpu_pageset();
 
+	for_each_populated_zoneidx(zone, 0) {
+		printk("aaaaaaaaaaaaa %p\n", zone);
+	}
+		
 	while(1);
 }

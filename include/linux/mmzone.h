@@ -261,6 +261,8 @@ static inline void zone_set_nid(struct zone *zone, int nid)
 extern struct pglist_data *first_online_pgdat(void);
 extern struct pglist_data *next_online_pgdat(struct pglist_data *pgdat);
 extern struct zone *next_zone(struct zone *zone);
+extern struct zone *first_populated_zoneidx(enum zone_type idx);
+extern struct zone *next_populated_zoneidx(struct zone *zone);
 
 /**
  * for_each_online_pgdat - helper macro to iterate over all online nodes
@@ -287,6 +289,10 @@ extern struct zone *next_zone(struct zone *zone);
 		if (!populated_zone(zone))                                     \
 			; /* do nothing */                                     \
 		else
+
+#define for_each_populated_zoneidx(zone, idx)	\
+	for (zone = first_populated_zoneidx(idx); zone;	\
+		 zone = next_populated_zoneidx(zone))
 
 #define for_each_migratetype_order(order, type) \
 	for (order = 0; order < MAX_ORDER; order++) \
