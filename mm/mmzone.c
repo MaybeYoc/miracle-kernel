@@ -55,9 +55,9 @@ struct zone *first_populated_zoneidx(enum zone_type idx)
 struct zone *next_populated_zoneidx(struct zone *zone)
 {
 	enum zone_type idx = zone_idx(zone);
-	struct pglist_data *pgdat;
+	struct pglist_data *pgdat = zone->zone_pgdat;
 
-	for (pgdat = zone->zone_pgdat; pgdat; pgdat = next_online_pgdat(pgdat))
+	for (pgdat = next_online_pgdat(pgdat); pgdat; pgdat = next_online_pgdat(pgdat))
 		if (populated_zone(&pgdat->node_zones[idx]))
 			return &pgdat->node_zones[idx];
 	

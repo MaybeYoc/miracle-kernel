@@ -162,6 +162,25 @@ static inline void rmv_page_order(struct page *page)
 }
 
 /*
+ * A bad page could be due to a number of fields. Instead of multiple branches,
+ * try and check multiple fields with one check. The caller must do a detailed
+ * check if necessary.
+ */
+static inline bool page_expected_state(struct page *page,
+					unsigned long check_flags)
+{
+	if (unlikely(atomic_read(&page->_mapcount) != -1))
+		return false;
+
+	if (unlikely((unsigned long)page->mapping |
+			page_ref_count(page) |
+			(page->flags & check_flags)))
+		return false;
+
+	return true;
+}
+
+/*
  * This function checks whether a page is free && is the buddy
  * we can coalesce a page and its buddy if
  * (a) the buddy is not in a hole (check before calling!) &&
@@ -200,6 +219,11 @@ static inline int page_is_buddy(struct page *page, struct page *buddy,
 		return 1;
 	}
 	return 0;
+}
+
+static bool check_new_pcp(struct page *page)
+{
+	return false;
 }
 
 /*
@@ -287,6 +311,8 @@ static __always_inline bool
 __rmqueue_fallback(struct zone *zone, int order, int start_migratetype,
 						unsigned int alloc_flags)
 {
+	/* TODO */
+	BUG_ON(1);
 	return false;
 }
 
@@ -312,6 +338,359 @@ retry:
 	}
 
 	return page;
+}
+
+static void check_new_page_bad(struct page *page)
+{
+	const char *bad_reason = NULL;
+	unsigned long bad_flags = 0;
+
+	if (unlikely(atomic_read(&page->_mapcount) != -1))
+		bad_reason = "nonzero mapcount";
+	if (unlikely(page->mapping != NULL))
+		bad_reason = "non-NULL mapping";
+	if (unlikely(page_ref_count(page) != 0))
+		bad_reason = "nonzero _count";
+	if (unlikely(page->flags & __PG_HWPOISON)) {
+		bad_reason = "HWPoisoned (hardware-corrupted)";
+		bad_flags = __PG_HWPOISON;
+		/* Don't complain about hwpoisoned pages */
+		page_mapcount_reset(page); /* remove PageBuddy */
+		return;
+	}
+	if (unlikely(page->flags & PAGE_FLAGS_CHECK_AT_PREP)) {
+		bad_reason = "PAGE_FLAGS_CHECK_AT_PREP flag set";
+		bad_flags = PAGE_FLAGS_CHECK_AT_PREP;
+	}
+
+	bad_page(page, bad_reason, bad_flags);
+}
+
+static inline int check_new_page(struct page *page)
+{
+	if (likely(page_expected_state(page,
+					PAGE_FLAGS_CHECK_AT_PREP|__PG_HWPOISON)))
+		return 0;
+
+	check_new_page_bad(page);
+	return 1;
+}
+
+static bool check_pcp_refill(struct page *page)
+{
+	return check_new_page(page);
+}
+
+/*
+ * Obtain a specified number of elements from the buddy allocator, all under
+ * a single hold of the lock, for efficiency.  Add them to the supplied list.
+ * Returns the number of new pages which were placed at *list.
+ */
+static int rmqueue_bulk(struct zone *zone, unsigned int order,
+			unsigned long count, struct list_head *list,
+			int migratetype, unsigned int alloc_flags)
+{
+	int i, alloced = 0;
+
+	spin_lock(&zone->lock);
+	for (i = 0; i < count; i++) {
+		struct page *page = __rmqueue(zone, order, migratetype,
+								alloc_flags);
+		if (unlikely(page == NULL))
+			break;
+
+		if (unlikely(check_pcp_refill(page)))
+			continue;
+
+		/*
+		 * Split buddy pages returned by expand() are received here in
+		 * physical page order. The page is added to the tail of
+		 * caller's list. From the callers perspective, the linked list
+		 * is ordered by page number under some conditions. This is
+		 * useful for IO devices that can forward direction from the
+		 * head, thus also in the physical page order. This is useful
+		 * for IO devices that can merge IO requests if the physical
+		 * pages are ordered properly.
+		 */
+		list_add_tail(&page->lru, list);
+		alloced++;
+	}
+
+	spin_unlock(&zone->lock);
+	return alloced;
+}
+
+/* Remove page from the per-cpu list, caller must protect the list */
+static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
+			unsigned int alloc_flags,
+			struct per_cpu_pages *pcp,
+			struct list_head *list)
+{
+	struct page *page;
+
+	do {
+		if (list_empty(list)) {
+			pcp->count += rmqueue_bulk(zone, 0,
+					pcp->batch, list,
+					migratetype, alloc_flags);
+			if (unlikely(list_empty(list)))
+				return NULL;
+		}
+
+		page = list_first_entry(list, struct page, lru);
+		list_del(&page->lru);
+		pcp->count--;
+	} while (check_new_pcp(page));
+
+	return page;
+}
+
+/*
+ * Update NUMA hit/miss statistics
+ *
+ * Must be called with interrupts disabled.
+ */
+static inline void zone_statistics(struct zone *preferred_zone, struct zone *z)
+{
+#ifdef CONFIG_NUMA
+	/* TODO */
+#endif
+}
+
+/* Lock and remove page from the per-cpu list */
+static struct page *rmqueue_pcplist(struct zone *zone, unsigned int order,
+			gfp_t gfp_mask, unsigned int alloc_flags,
+			int migratetype)
+{
+	struct per_cpu_pages *pcp;
+	struct list_head *list;
+	struct page *page;
+	unsigned long flags;
+
+	local_irq_save(flags);
+	pcp = &this_cpu_ptr(zone->pageset)->pcp;
+	list = &pcp->lists[migratetype];
+	page = __rmqueue_pcplist(zone, migratetype, alloc_flags, pcp, list);
+	if (page)
+		zone_statistics(NULL, zone);
+	local_irq_restore(flags);
+
+	return page;
+}
+
+static bool check_new_pages(struct page *page, unsigned int order)
+{
+	int i;
+	for (i = 0; i < (1 << order); i++) {
+		struct page *p = page + i;
+
+		if (unlikely(check_new_page(p)))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+ * Allocate a page from the given zone. Use pcplists for order-0 allocations.
+ */
+static inline
+struct page *rmqueue(struct zone *zone, unsigned int order,
+			gfp_t gfp_mask, unsigned int alloc_flags,
+			int migratetype)
+{
+	unsigned long flags;
+	struct page *page;
+
+	if (likely(order == 0)) {
+		page = rmqueue_pcplist(zone, order, gfp_mask,
+									alloc_flags, migratetype);
+		goto out;
+	}
+
+	/*
+	 * We most definitely don't want callers attempting to
+	 * allocate greater than order-1 page units with __GFP_NOFAIL.
+	 */
+	spin_lock_irqsave(&zone->lock, flags);
+
+	do {
+		page = NULL;
+		
+		page = __rmqueue_smallest(zone, order, migratetype);
+		if (!page)
+			page = __rmqueue(zone, order, migratetype, alloc_flags);
+	} while (page && check_new_pages(page, order));
+	spin_unlock(&zone->lock);
+	if (!page)
+		goto failed;
+
+	zone_statistics(NULL, zone);
+	local_irq_restore(flags);
+
+out:
+	/* Separate test+clear to avoid unnecessary atomics */
+	/* TODO
+	 * if (test_bit(ZONE_BOOSTED_WATRMARK, &zone->flags))
+	 *	wakeup_kswap();
+	 */
+	VM_BUG_ON_PAGE(page && bad_range(zone, page), page);
+	return page;
+
+failed:
+	local_irq_restore(flags);
+	return NULL;
+}
+
+void prep_compound_page(struct page *page, unsigned int order)
+{
+	int i;
+	int nr_pages = 1 << order;
+
+	/* TODO */
+	//set_compound_page_dtor(page, COMPOUND_PAGE_DTOR);
+	set_compound_order(page, order);
+	__SetPageHead(page);
+	for (i = 1; i < nr_pages; i++) {
+		struct page *p = page + i;
+		set_page_count(p, 0);
+		p->mapping = TAIL_MAPPING;
+		set_compound_head(p, page);
+	}
+	atomic_set(compound_mapcount_ptr(page), -1);
+}
+
+inline void post_alloc_hook(struct page *page, unsigned int order,
+				gfp_t gfp_mask)
+{
+	set_page_private(page, 0);
+	set_page_refcounted(page);
+}
+
+static void prep_new_page(struct page *page, unsigned int order, gfp_t gfp_mask,
+							unsigned int alloc_flags)
+{
+	int i;
+
+	post_alloc_hook(page, order, gfp_mask);
+
+	if (gfp_mask & __GFP_ZERO)
+		for (i = 0; i < (1 << order); i++)
+			clear_page(page_address(page + i));
+
+	if (order && (gfp_mask & __GFP_COMP))
+		prep_compound_page(page, order);
+}
+
+/*
+ * get_page_from_freelist goes through the zonelist trying to allocate
+ * a page.
+ */
+static struct page *
+get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
+						struct alloc_context *ac)
+{
+	/*
+	 * Scan zonelist, looking for a zone with enough free.
+	 * See also __cpuset_node_allowed() comment in kernel/cpuset.c.
+	 */
+	for_each_populated_zoneidx(ac->zone, ac->zoneidx) {
+		struct page *page;
+		page = rmqueue(ac->zone, order, gfp_mask, alloc_flags,
+													ac->migratetype);
+		if (page) {
+			prep_new_page(page, order, gfp_mask, alloc_flags);
+
+			return page;
+		}
+	}
+
+	return NULL;
+}
+
+static inline bool prepare_alloc_pages(gfp_t gfp_mask, unsigned int order,
+		int preferred_nid, nodemask_t *nodemask,
+		struct alloc_context *ac, gfp_t *allock_flags)
+{
+	ac->zoneidx = gfp_zone(gfp_mask);
+	ac->nodemask = nodemask;
+	ac->migratetype = gfpflags_to_migratetype(gfp_mask);
+
+	WARN_ON(ac->migratetype != MIGRATE_UNMOVABLE);
+
+	return true;
+}
+
+static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
+{
+	/*
+	 * The preferred zone is used for statistics but crucially it is
+	 * also used as the starting point for the zonelist iterator. It
+	 * may get reset for allocations that ignore memory policies.
+	 */
+	/* FIXME: Not support NUMA, so direct get zone... */
+}
+
+static inline struct page *
+__alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+						struct alloc_context *ac)
+{
+	/* TODO */
+	BUG_ON(1);
+
+	return NULL;
+}
+/*
+ * This is the 'heart' of the zoned buddy allocator.
+ */
+struct page *
+__alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
+							nodemask_t *nodemask)
+{
+	struct page *page;
+	gfp_t alloc_flags;
+	struct alloc_context ac = {};
+
+	/*
+	 * There are several places where we assume that the order value is sane
+	 * so bail out early if the request is out of bound.
+	 */
+	if (unlikely(order >= MAX_ORDER)) {
+		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
+		return NULL;
+	}
+
+	alloc_flags = gfp_mask;
+	if (unlikely(!prepare_alloc_pages(gfp_mask, order, preferred_nid, nodemask,
+								&ac, &alloc_flags)))
+		return 	NULL;
+
+	finalise_ac(gfp_mask, &ac);
+
+	/* First allocation attempt */
+	page = get_page_from_freelist(gfp_mask, order, alloc_flags, &ac);
+	if (likely(page))
+		goto out;
+
+	page = __alloc_pages_slowpath(alloc_flags, order, &ac);
+
+out:
+	return page;
+}
+
+/*
+ * Common helper functions. Never use with __GFP_HIGHMEM because the returned
+ * address cannot represent highmem pages. Use alloc_pages and then kmap if
+ * you need to access high mem.
+ */
+unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order)
+{
+	struct page *page;
+
+	page = alloc_pages(gfp_mask, order);
+	if (!page)
+		return 0;
+	return (unsigned long) page_address(page);
 }
 
 /*
@@ -445,25 +824,6 @@ static inline void prefetch_buddy(struct page *page)
 	struct page *buddy = page + (buddy_pfn - pfn);
 
 	prefetch(buddy);
-}
-
-/*
- * A bad page could be due to a number of fields. Instead of multiple branches,
- * try and check multiple fields with one check. The caller must do a detailed
- * check if necessary.
- */
-static inline bool page_expected_state(struct page *page,
-					unsigned long check_flags)
-{
-	if (unlikely(atomic_read(&page->_mapcount) != -1))
-		return false;
-
-	if (unlikely((unsigned long)page->mapping |
-			page_ref_count(page) |
-			(page->flags & check_flags)))
-		return false;
-
-	return true;
 }
 
 static void free_pages_check_bad(struct page *page)
@@ -753,74 +1113,6 @@ void free_pages(unsigned long addr, unsigned int order)
 		VM_BUG_ON(!virt_addr_valid((void *)addr));
 		__free_pages(virt_to_page((void *)addr), order);
 	}
-}
-
-static inline bool prepare_alloc_pages(gfp_t gfp_mask, unsigned int order,
-		int preferred_nid, nodemask_t *nodemask,
-		struct alloc_context *ac, gfp_t *allock_flags)
-{
-	ac->zoneidx = gfp_zone(gfp_mask);
-	ac->nodemask = nodemask;
-	ac->migratetype = gfpflags_to_migratetype(gfp_mask);
-
-	WARN_ON(ac->migratetype != MIGRATE_UNMOVABLE);
-
-	return true;
-}
-
-static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
-{
-	/*
-	 * The preferred zone is used for statistics but crucially it is
-	 * also used as the starting point for the zonelist iterator. It
-	 * may get reset for allocations that ignore memory policies.
-	 */
-
-}
-
-/*
- * This is the 'heart' of the zoned buddy allocator.
- */
-struct page *
-__alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
-							nodemask_t *nodemask)
-{
-	struct page *page;
-	gfp_t alloc_flags;
-	struct alloc_context ac = {};
-
-	/*
-	 * There are several places where we assume that the order value is sane
-	 * so bail out early if the request is out of bound.
-	 */
-	if (unlikely(order >= MAX_ORDER)) {
-		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
-		return NULL;
-	}
-
-	alloc_flags = gfp_mask;
-	if (unlikely(!prepare_alloc_pages(gfp_mask, order, preferred_nid, nodemask,
-								&ac, &alloc_flags)))
-		return 	NULL;
-
-	finalise_ac(gfp_mask, &ac);
-
-	return page;
-}
-
-/*
- * Common helper functions. Never use with __GFP_HIGHMEM because the returned
- * address cannot represent highmem pages. Use alloc_pages and then kmap if
- * you need to access high mem.
- */
-unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order)
-{
-	struct page *page;
-
-	page = alloc_pages(gfp_mask, order);
-	if (!page)
-		return 0;
-	return (unsigned long) page_address(page);
 }
 
 static inline void init_reserved_page(unsigned long pfn)
