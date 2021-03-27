@@ -39,8 +39,21 @@ struct page {
 			 */
 			unsigned long private;
 		};
-		struct {	/* slub */
-			struct kmem_cache *slab_cache;
+		struct {	/* slab, slob and slub */
+			union {
+				struct list_head slab_list;	/* uses lru */
+				struct {	/* Partial pages */
+					struct page *next;
+#ifdef CONFIG_64BIT
+					int pages;	/* Nr of pages left */
+					int pobjects;	/* Approximate count */
+#else
+					short int pages;
+					short int pobjects;
+#endif
+				};
+			};
+			struct kmem_cache *slab_cache; /* not slob */
 			/* Double-word boundary */
 			void *freelist;		/* first free object */
 			union {
