@@ -3,7 +3,7 @@
 # Makefile for the linux memory manager.
 #
 
-obj-y := page_alloc.o memory.o mmzone.o percpu.o
+obj-y := page_alloc.o memory.o mmzone.o percpu.o slab_common.o
 
 obj-y += memblock.o
 obj-y += init_mm.o

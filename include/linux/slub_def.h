@@ -29,7 +29,7 @@ enum stat_item {
 	CPU_PARTIAL_FREE,	/* Refill cpu partial on free */
 	CPU_PARTIAL_NODE,	/* Refill cpu partial from node partial */
 	CPU_PARTIAL_DRAIN,	/* Drain cpu partial to node partial */
-	NR_SLUB_STAT_ITEMS 
+	NR_SLUB_STAT_ITEMS
 };
 
 struct kmem_cache_cpu {
@@ -37,6 +37,10 @@ struct kmem_cache_cpu {
 	unsigned long tid;	/* Globally unique transaction id */
 	struct page *page;	/* This slab from which we are allocating */
 };
+
+#define slub_percpu_partial(c)			NULL
+#define slub_set_percpu_partial(c, p)
+#define slub_percpu_partial_read_once(c)	NULL
 
 /*
  * Word size structure that can be atomically updated or read and that
@@ -47,6 +51,9 @@ struct kmem_cache_order_objects {
 	unsigned int x;
 };
 
+/*
+ * Slab cache management.
+ */
 struct kmem_cache {
 	struct kmem_cache_cpu __percpu *cpu_slab;
 	/* Used for retriving partial slabs etc */
@@ -57,6 +64,7 @@ struct kmem_cache {
 	unsigned int offset;	/* Free pointer offset */
 
 	struct kmem_cache_order_objects oo;
+
 	/* Allocation and freeing of slabs */
 	struct kmem_cache_order_objects max;
 	struct kmem_cache_order_objects min;
@@ -69,10 +77,12 @@ struct kmem_cache {
 	const char *name; 	/* Name (only for display) */
 	struct list_head list;	/* List of slab caches */
 
+#ifdef CONFIG_NUMA
 	/*
 	 * Defragmentation by allocating from a remote node.
 	 */
 	unsigned int remote_node_defrag_ratio;
+#endif
 
 	unsigned int useroffset;	/* Usercopy region offset */
 	unsigned int usersize;		/* Usercopy region size */
@@ -81,9 +91,6 @@ struct kmem_cache {
 };
 
 #define slub_cpu_partial(s)		(0)
-
-#define slub_percpu_partial(c)			NULL
-
-#define slub_set_percpu_partial(c, p)
+#define slub_set_cpu_partial(s, n)
 
 #endif /* _LINUX_SLUB_DEF_H */

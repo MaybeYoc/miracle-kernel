@@ -6,6 +6,32 @@
  */
 #include <linux/slub_def.h>
 
+/*
+ * State of the slab allocator.
+ *
+ * This is used to describe the states of the allocator during bootup.
+ * Allocators use this to gradually bootstrap themselves. Most allocators
+ * have the problem that the structures used for managing slab caches are
+ * allocated from slab caches themselves.
+ */
+enum slab_state {
+	DOWN,			/* No slab functionality yet */
+	PARTIAL,		/* SLUB: kmem_cache_node available */
+	PARTIAL_NODE,		/* SLAB: kmalloc size for node struct available */
+	UP,			/* Slab caches usable but not all extras yet */
+	FULL			/* Everything is working */
+};
+
+extern enum slab_state slab_state;
+
+/* The slab cache that manages slab cache information */
+extern struct kmem_cache *kmem_cache;
+
+extern const struct kmalloc_info_struct {
+	const char *name;
+	unsigned int size;
+} kmalloc_info[];
+
 struct kmem_cache_node {
 	spinlock_t list_lock;
 	unsigned long nr_partial;
@@ -96,5 +122,12 @@ static inline struct kmem_cache *cache_from_obj(struct kmem_cache *s, void *x)
 	WARN_ON_ONCE(1);
 	return s;
 }
+
+extern void create_boot_cache(struct kmem_cache *, const char *name,
+			unsigned int size, slab_flags_t flags,
+			unsigned int useroffset, unsigned int usersize);
+
+/* Functions provided by the slab allocators */
+int __kmem_cache_create(struct kmem_cache *, slab_flags_t flags);
 
 #endif /* MM_SLAB_H */
