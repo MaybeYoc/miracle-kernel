@@ -96,6 +96,25 @@ static inline struct kmem_cache_node *get_node(struct kmem_cache *s, int node)
 	return s->node[node];
 }
 
+/*
+ * Iterator over all nodes. The body will be executed for each node that has
+ * a kmem_cache_node structure allocated (which is true for all online nodes)
+ */
+#define for_each_kmem_cache_node(__s, __node, __n) \
+	for (__node = 0; __node < nr_node_ids; __node++) \
+		 if ((__n = get_node(__s, __node)))
+
+static inline void slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
+					size_t size, void **p)
+{
+}
+
+static inline struct kmem_cache *slab_pre_alloc_hook(struct kmem_cache *s,
+						     gfp_t flags)
+{
+	return s;
+}
+
 static inline struct kmem_cache *cache_from_obj(struct kmem_cache *s, void *x)
 {
 	struct kmem_cache *cachep;
@@ -108,9 +127,8 @@ static inline struct kmem_cache *cache_from_obj(struct kmem_cache *s, void *x)
 	 * to not do even the assignment. In that case, slab_equal_or_root
 	 * will also be a constant.
 	 */
-	//if (!memcg_kmem_enabled() &&
-	 //   !unlikely(s->flags & SLAB_CONSISTENCY_CHECKS))
-	//	return s;
+	if (!unlikely(s->flags & SLAB_CONSISTENCY_CHECKS))
+		return s;
 
 	page = virt_to_head_page(x);
 	cachep = page->slab_cache;
@@ -129,5 +147,10 @@ extern void create_boot_cache(struct kmem_cache *, const char *name,
 
 /* Functions provided by the slab allocators */
 int __kmem_cache_create(struct kmem_cache *, slab_flags_t flags);
+
+/* The list of all slab caches on the system */
+extern struct list_head slab_caches;
+
+static inline void cache_random_seq_destroy(struct kmem_cache *cachep) { }
 
 #endif /* MM_SLAB_H */

@@ -27,6 +27,21 @@ static inline int numa_node_id(void)
 }
 #endif
 
+#ifndef numa_mem_id
+/* Returns the number of the nearest Node with memory */
+static inline int numa_mem_id(void)
+{
+	return numa_node_id();
+}
+#endif
+
+#ifndef node_to_mem_node
+static inline int node_to_mem_node(int node)
+{
+	return node;
+}
+#endif
+
 #include <asm/numa.h>
 
 #endif /* _LINUX_NUMA_H */

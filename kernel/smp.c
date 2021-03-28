@@ -37,3 +37,9 @@ void kick_all_cpus_sync(void)
 	/* Make sure the change is visible before we kick the cpus */
 	smp_mb();
 }
+
+void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
+			smp_call_func_t func, void *info, bool wait,
+			gfp_t gfp_flags)
+{
+}

@@ -14,6 +14,8 @@
 
 #include <asm/smp.h>
 
+typedef void (*smp_call_func_t)(void *info);
+
 #ifdef CONFIG_SMP
 void kick_all_cpus_sync(void);
 extern void __init setup_nr_cpu_ids(void);
@@ -38,5 +40,14 @@ static inline void setup_nr_cpu_ids(void) { }
  * the warning message, as your code might not work under PREEMPT.
  */
 #define smp_processor_id() raw_smp_processor_id()
+
+/*
+ * Call a function on each processor for which the supplied function
+ * cond_func returns a positive value. This may include the local
+ * processor.
+ */
+void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
+		smp_call_func_t func, void *info, bool wait,
+		gfp_t gfp_flags);
 
 #endif /* __LINUX_SMP_H */

@@ -5,8 +5,8 @@
  * (C) 2012 Christoph Lameter <cl@linux.com>
  */
 #include <linux/slab.h>
-
 #include <linux/mm.h>
+#include <linux/list.h>
 #include <linux/poison.h>
 #include <linux/compiler.h>
 #include <linux/cache.h>
@@ -18,6 +18,7 @@
 #include "slab.h"
 
 enum slab_state slab_state;
+LIST_HEAD(slab_caches);
 struct kmem_cache *kmem_cache;
 
 unsigned int kmem_cache_size(struct kmem_cache *s)
@@ -141,4 +142,16 @@ void __init create_boot_cache(struct kmem_cache *s, const char *name,
 					name, size, err);
 
 	s->refcount = -1;	/* Exempt from merging for now */
+}
+
+void __kmem_cache_free_bulk(struct kmem_cache *s, size_t nr, void **p)
+{
+	size_t i;
+
+	for (i = 0; i < nr; i++) {
+		if (s)
+			kmem_cache_free(s, p[i]);
+		else
+			kfree(p[i]);
+	}
 }
