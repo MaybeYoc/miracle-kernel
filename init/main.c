@@ -91,6 +91,9 @@ asmlinkage __visible void __init start_kernel(void)
 	system_state = SYSTEM_BOOTING;
 
 	smp_setup_processor_id();
+
+	local_irq_disable();
+
 	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);
 
@@ -105,6 +108,8 @@ asmlinkage __visible void __init start_kernel(void)
 	mm_init();
 
 	setup_per_cpu_pageset();
+
+	local_irq_enable();
 
 	while(1);
 }
