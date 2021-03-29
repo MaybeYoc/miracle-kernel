@@ -9,6 +9,7 @@
 #include <linux/gfp.h>
 #include <linux/mm_types.h>
 #include <linux/mmzone.h>
+#include <linux/slab.h>
 
 #include <asm/pgtable.h>
 
@@ -138,6 +139,13 @@ extern void setup_per_cpu_pageset(void);
 static inline atomic_t *compound_mapcount_ptr(struct page *page)
 {
 	return &page[1].compound_mapcount;
+}
+
+static inline int compound_mapcount(struct page *page)
+{
+	VM_BUG_ON_PAGE(!PageCompound(page), page);
+	page = compound_head(page);
+	return atomic_read(compound_mapcount_ptr(page)) + 1;
 }
 
 /*

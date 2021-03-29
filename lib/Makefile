@@ -4,7 +4,7 @@
 #
 obj-y += bitmap.o llist.o list_sort.o kstrtox.o 	\
 		hexdump.o div64.o string_helpers.o	\
-		memweight.o sort.o find_bit.o
+		memweight.o sort.o find_bit.o kasprintf.o
 
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o
 obj-$(CONFIG_GENERIC_HWEIGHT) += hweight.o

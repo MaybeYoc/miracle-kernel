@@ -80,6 +80,7 @@ void __init parse_early_param(void)
 static void __init mm_init(void)
 {
 	mem_init();
+	kmem_cache_init();
 }
 
 asmlinkage __visible void __init start_kernel(void)

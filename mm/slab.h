@@ -96,6 +96,10 @@ static inline struct kmem_cache_node *get_node(struct kmem_cache *s, int node)
 	return s->node[node];
 }
 
+/* Kmalloc array related functions */
+void setup_kmalloc_cache_index_table(void);
+void create_kmalloc_caches(slab_flags_t);
+
 /*
  * Iterator over all nodes. The body will be executed for each node that has
  * a kmem_cache_node structure allocated (which is true for all online nodes)
@@ -153,4 +157,39 @@ extern struct list_head slab_caches;
 
 static inline void cache_random_seq_destroy(struct kmem_cache *cachep) { }
 
+static inline size_t slab_ksize(const struct kmem_cache *s)
+{
+	if (s->flags & SLAB_KASAN)
+		return s->object_size;
+	/*
+	 * If we have the need to store the freelist pointer
+	 * back there or track user information then we can
+	 * only use the space before that information.
+	 */
+	if (s->flags & (SLAB_TYPESAFE_BY_RCU | SLAB_STORE_USER))
+		return s->inuse;
+	/*
+	 * Else we can use all the padding etc for the allocation
+	 */
+	return s->size;
+}
+
+/* Find the kmalloc slab corresponding for a certain size */
+struct kmem_cache *kmalloc_slab(size_t, gfp_t);
+
+/*
+ * Generic implementation of bulk operations
+ * These are useful for situations in which the allocator cannot
+ * perform optimizations. In that case segments of the object listed
+ * may be allocated or freed using these operations.
+ */
+void __kmem_cache_free_bulk(struct kmem_cache *, size_t, void **);
+
+struct kmem_cache *create_kmalloc_cache(const char *name, unsigned int size,
+			slab_flags_t flags, unsigned int useroffset,
+			unsigned int usersize);
+extern void create_boot_cache(struct kmem_cache *, const char *name,
+			unsigned int size, slab_flags_t flags,
+			unsigned int useroffset, unsigned int usersize);
+			
 #endif /* MM_SLAB_H */

@@ -8,6 +8,10 @@
 #include <stdarg.h>
 #include <uapi/linux/string.h>
 
+extern char *strndup_user(const char __user *, long);
+extern void *memdup_user(const void __user *, size_t);
+extern void *memdup_user_nul(const void __user *, size_t);
+
 /*
  * Include machine specific inline routines
  */
@@ -111,6 +115,14 @@ extern int memcmp(const void *,const void *,__kernel_size_t);
 extern void * memchr(const void *,int,__kernel_size_t);
 #endif
 void *memchr_inv(const void *s, int c, size_t n);
+
+extern void kfree_const(const void *x);
+
+extern char *kstrdup(const char *s, gfp_t gfp) __malloc;
+extern const char *kstrdup_const(const char *s, gfp_t gfp);
+extern char *kstrndup(const char *s, size_t len, gfp_t gfp);
+extern void *kmemdup(const void *src, size_t len, gfp_t gfp);
+extern char *kmemdup_nul(const char *s, size_t len, gfp_t gfp);
 
 extern bool sysfs_streq(const char *s1, const char *s2);
 extern int strtobool(const char *s, bool *res);

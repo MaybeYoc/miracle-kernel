@@ -419,21 +419,12 @@ out:
 
 static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 {
-	if (unlikely(flags)) {
-		gfp_t invalid_mask = flags ;
-
-		pr_warn("Unexpected gfp: %#x (%pGg). Fixing up to gfp: %#x (%pGg). Fix your code!\n",
-				invalid_mask, &invalid_mask, flags, &flags);
-		dump_stack();
-	}
-
 	return allocate_slab(s, flags , node);
 }
 
 static void __free_slab(struct kmem_cache *s, struct page *page)
 {
 	int order = compound_order(page);
-	int pages = 1 << order;
 
 	if (s->flags & SLAB_CONSISTENCY_CHECKS) {
 		void *p;
@@ -871,24 +862,6 @@ static void flush_all(struct kmem_cache *s)
 {
 	/* TODO */
 	on_each_cpu_cond(has_cpu_slab, flush_cpu_slab, s, 1, 0);
-}
-
-/*
- * Use the cpu notifier to insure that the cpu slabs are flushed when
- * necessary.
- */
-static int slub_cpu_dead(unsigned int cpu)
-{
-	struct kmem_cache *s;
-	unsigned long flags;
-
-	list_for_each_entry(s, &slab_caches, list) {
-		local_irq_save(flags);
-		__flush_cpu_slab(s, cpu);
-		local_irq_restore(flags);
-	}
-
-	return 0;
 }
 
 /*
@@ -1757,7 +1730,7 @@ static void early_kmem_cache_node_alloc(int node)
 
 	BUG_ON(kmem_cache_node->size < sizeof(struct kmem_cache_node));
 
-	page = new_slab(kmem_cache_node, GFP_NOWAIT, node);
+	page = new_slab(kmem_cache_node, GFP_KERNEL, node);
 
 	BUG_ON(!page);
 	if (page_to_nid(page) != node) {
@@ -1897,6 +1870,9 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 	if (s->flags & SLAB_CACHE_DMA)
 		s->allocflags |= GFP_DMA;
 
+	if (s->flags & SLAB_RECLAIM_ACCOUNT)
+		s->allocflags |= __GFP_RECLAIMABLE;
+
 	/*
 	 * Determine the number of objects per slab
 	 */
@@ -1953,6 +1929,7 @@ static void list_slab_objects(struct kmem_cache *s, struct page *page,
 {
 }
 
+/*
  * Attempt to free all partial slabs on a node.
  * This is called from __kmem_cache_shutdown(). We must take list_lock
  * because sysfs file might still access partial list after the shutdowning.
@@ -2011,7 +1988,20 @@ int __kmem_cache_shutdown(struct kmem_cache *s)
 
 void *__kmalloc(size_t size, gfp_t flags)
 {
-	return NULL;
+	struct kmem_cache *s;
+	void *ret;
+
+	if (unlikely(size > KMALLOC_MAX_CACHE_SIZE))
+		return kmalloc_large(size, flags);
+
+	s = kmalloc_slab(size, flags);
+
+	if (unlikely(ZERO_OR_NULL_PTR(s)))
+		return s;
+
+	ret = slab_alloc(s, flags, _RET_IP_);
+
+	return ret;
 }
 
 static void *kmalloc_large_node(size_t size, gfp_t flags, int node)
@@ -2029,7 +2019,47 @@ static void *kmalloc_large_node(size_t size, gfp_t flags, int node)
 
 void *__kmalloc_node(size_t size, gfp_t flags, int node)
 {
+	struct kmem_cache *s;
+	void *ret;
+
+	if (unlikely(size > KMALLOC_MAX_CACHE_SIZE)) {
+		ret = kmalloc_large_node(size, flags, node);
+
+		return ret;
+	}
+
+	s = kmalloc_slab(size, flags);
+
+	if (unlikely(ZERO_OR_NULL_PTR(s)))
+		return s;
+
+	ret = slab_alloc_node(s, flags, node, _RET_IP_);
+
 	return ret;
+}
+
+static size_t __ksize(const void *object)
+{
+	struct page *page;
+
+	if (unlikely(object == ZERO_SIZE_PTR))
+		return 0;
+
+	page = virt_to_head_page(object);
+
+	if (unlikely(!PageSlab(page))) {
+		WARN_ON(!PageCompound(page));
+		return PAGE_SIZE << compound_order(page);
+	}
+
+	return slab_ksize(page->slab_cache);
+}
+
+size_t ksize(const void *object)
+{
+	size_t size = __ksize(object);
+
+	return size;
 }
 
 void kfree(const void *x)
@@ -2043,8 +2073,8 @@ void kfree(const void *x)
 	page = virt_to_head_page(x);
 	if (unlikely(!PageSlab(page))) {
 		BUG_ON(!PageCompound(page));
-		//kfree_hook(object);
-		//__free_pages(page, compound_order(page));
+		kfree_hook(object);
+		__free_pages(page, compound_order(page));
 		return;
 	}
 	slab_free(page->slab_cache, page, object, NULL, 1, _RET_IP_);
@@ -2123,12 +2153,102 @@ int __kmem_cache_shrink(struct kmem_cache *s)
 	return ret;
 }
 
-static int slab_mem_going_offline_callback(void *arg)
+/*
+ * Used for early kmem_cache structures that were allocated using
+ * the page allocator. Allocate them properly then fix up the pointers
+ * that may be pointing to the wrong kmem_cache structure.
+ */
+static struct kmem_cache * __init bootstrap(struct kmem_cache *static_cache)
+{
+	int node;
+	struct kmem_cache *s = kmem_cache_zalloc(kmem_cache, GFP_KERNEL);
+	struct kmem_cache_node *n;
+
+	memcpy(s, static_cache, kmem_cache->object_size);
+
+	/*
+	 * This runs very early, and only the boot processor is supposed to be
+	 * up.  Even if it weren't true, IRQs are not up so we couldn't fire
+	 * IPIs around.
+	 */
+	__flush_cpu_slab(s, smp_processor_id());
+	for_each_kmem_cache_node(s, node, n) {
+		struct page *p;
+
+		list_for_each_entry(p, &n->partial, lru)
+			p->slab_cache = s;
+
+	}
+	slab_init_memcg_params(s);
+	list_add(&s->list, &slab_caches);
+	memcg_link_cache(s);
+	return s;
+}
+
+void __init kmem_cache_init(void)
+{
+	static __initdata struct kmem_cache boot_kmem_cache,
+		boot_kmem_cache_node;
+
+	kmem_cache_node = &boot_kmem_cache_node;
+	kmem_cache = &boot_kmem_cache;
+
+	create_boot_cache(kmem_cache_node, "kmem_cache_node",
+		sizeof(struct kmem_cache_node), SLAB_HWCACHE_ALIGN, 0, 0);
+
+	/* Able to allocate the per node structures */
+	slab_state = PARTIAL;
+
+	create_boot_cache(kmem_cache, "kmem_cache",
+			offsetof(struct kmem_cache, node) +
+				nr_node_ids * sizeof(struct kmem_cache_node *),
+		       SLAB_HWCACHE_ALIGN, 0, 0);
+
+	kmem_cache = bootstrap(&boot_kmem_cache);
+	kmem_cache_node = bootstrap(&boot_kmem_cache_node);
+
+	/* Now we can use the kmem_cache to allocate kmalloc slabs */
+	setup_kmalloc_cache_index_table();
+	create_kmalloc_caches(0);
+
+	/* Setup random freelists for each cache */
+	init_freelist_randomization();
+
+	pr_info("SLUB: HWalign=%d, Order=%u-%u, MinObjects=%u, CPUs=%u, Nodes=%d\n",
+		cache_line_size(),
+		slub_min_order, slub_max_order, slub_min_objects,
+		nr_cpu_ids, nr_node_ids);
+}
+
+int __kmem_cache_create(struct kmem_cache *s, slab_flags_t flags)
+{
+	int err;
+
+	err = kmem_cache_open(s, flags);
+	if (err)
+		return err;
+
+	/* Mutex is not taken during early boot */
+	if (slab_state <= UP)
+		return 0;
+
+	return err;
+}
+
+void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, unsigned long caller)
 {
 	struct kmem_cache *s;
+	void *ret;
 
-	list_for_each_entry(s, &slab_caches, list)
-		__kmem_cache_shrink(s);
+	if (unlikely(size > KMALLOC_MAX_CACHE_SIZE))
+		return kmalloc_large(size, gfpflags);
 
-	return 0;
+	s = kmalloc_slab(size, gfpflags);
+
+	if (unlikely(ZERO_OR_NULL_PTR(s)))
+		return s;
+
+	ret = slab_alloc(s, gfpflags, caller);
+
+	return ret;
 }

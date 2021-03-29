@@ -257,6 +257,10 @@ static inline unsigned long __must_check clear_user(void __user *to, unsigned lo
 extern long strncpy_from_user(char *dest, const char __user *src, long count);
 /* TODO */
 extern __must_check long strlen_user(const char __user *str);
-extern __must_check long strnlen_user(const char __user *str, long n);
+//extern __must_check long strnlen_user(const char __user *str, long n);
+static inline __must_check long strnlen_user(const char __user *str, long n)
+{
+	BUG_ON(1);
+}
 
 #endif /* __ASM_UACCESS_H */
