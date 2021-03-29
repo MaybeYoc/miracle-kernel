@@ -10,6 +10,8 @@
 #include <linux/poison.h>
 #include <linux/compiler.h>
 #include <linux/cache.h>
+#include <linux/errno.h>
+#include <linux/err.h>
 
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
@@ -347,4 +349,282 @@ struct kmem_cache *__init create_kmalloc_cache(const char *name,
 bool slab_is_available(void)
 {
 	return slab_state >= UP;
+}
+
+/*
+ * Find a mergeable slab cache
+ */
+int slab_unmergeable(struct kmem_cache *s)
+{
+	if (!is_root_cache(s))
+		return 1;
+
+	if (s->ctor)
+		return 1;
+
+	if (s->usersize)
+		return 1;
+
+	/*
+	 * We may have set a slab to be unmergeable during bootstrap.
+	 */
+	if (s->refcount < 0)
+		return 1;
+
+	return 0;
+}
+
+struct kmem_cache *find_mergeable(unsigned int size, unsigned int align,
+		slab_flags_t flags, const char *name, void (*ctor)(void *))
+{
+	struct kmem_cache *s;
+
+	if (ctor)
+		return NULL;
+
+	size = ALIGN(size, sizeof(void *));
+	align = calculate_alignment(flags, align, size);
+	size = ALIGN(size, align);
+	flags = kmem_cache_flags(size, flags, name, NULL);
+
+	list_for_each_entry_reverse(s, &slab_root_caches, root_caches_node) {
+		if (slab_unmergeable(s))
+			continue;
+
+		if (size > s->size)
+			continue;
+
+		/*
+		 * Check if alignment is compatible.
+		 * Courtesy of Adrian Drzewiecki
+		 */
+		if ((s->size & ~(align - 1)) != s->size)
+			continue;
+
+		if (s->size - size >= sizeof(void *))
+			continue;
+
+		return s;
+	}
+	return NULL;
+}
+
+static struct kmem_cache *create_cache(const char *name,
+		unsigned int object_size, unsigned int align,
+		slab_flags_t flags, unsigned int useroffset,
+		unsigned int usersize, void (*ctor)(void *),
+		void *memcg, struct kmem_cache *root_cache)
+{
+	struct kmem_cache *s;
+	int err;
+
+	if (WARN_ON(useroffset + usersize > object_size))
+		useroffset = usersize = 0;
+
+	err = -ENOMEM;
+	s = kmem_cache_zalloc(kmem_cache, GFP_KERNEL);
+	if (!s)
+		goto out;
+
+	s->name = name;
+	s->size = s->object_size = object_size;
+	s->align = align;
+	s->ctor = ctor;
+	s->useroffset = useroffset;
+	s->usersize = usersize;
+
+	err = __kmem_cache_create(s, flags);
+	if (err)
+		goto out_free_cache;
+
+	s->refcount = 1;
+	list_add(&s->list, &slab_caches);
+	memcg_link_cache(s);
+out:
+	if (err)
+		return ERR_PTR(err);
+	return s;
+
+out_free_cache:
+	kmem_cache_free(kmem_cache, s);
+	goto out;
+}
+
+/**
+ * kmem_cache_create_usercopy - Create a cache with a region suitable
+ * for copying to userspace
+ * @name: A string which is used in /proc/slabinfo to identify this cache.
+ * @size: The size of objects to be created in this cache.
+ * @align: The required alignment for the objects.
+ * @flags: SLAB flags
+ * @useroffset: Usercopy region offset
+ * @usersize: Usercopy region size
+ * @ctor: A constructor for the objects.
+ *
+ * Cannot be called within a interrupt, but can be interrupted.
+ * The @ctor is run when new pages are allocated by the cache.
+ *
+ * The flags are
+ *
+ * %SLAB_POISON - Poison the slab with a known test pattern (a5a5a5a5)
+ * to catch references to uninitialised memory.
+ *
+ * %SLAB_RED_ZONE - Insert `Red` zones around the allocated memory to check
+ * for buffer overruns.
+ *
+ * %SLAB_HWCACHE_ALIGN - Align the objects in this cache to a hardware
+ * cacheline.  This can be beneficial if you're counting cycles as closely
+ * as davem.
+ *
+ * Return: a pointer to the cache on success, NULL on failure.
+ */
+struct kmem_cache *
+kmem_cache_create_usercopy(const char *name,
+		  unsigned int size, unsigned int align,
+		  slab_flags_t flags,
+		  unsigned int useroffset, unsigned int usersize,
+		  void (*ctor)(void *))
+{
+	struct kmem_cache *s = NULL;
+	const char *cache_name;
+	int err;
+
+	err = kmem_cache_sanity_check(name, size);
+	if (err) {
+		goto out_unlock;
+	}
+
+	/* Fail closed on bad usersize of useroffset values. */
+	if (WARN_ON(!usersize && useroffset) ||
+	    WARN_ON(size < usersize || size - usersize < useroffset))
+		usersize = useroffset = 0;
+
+	if (!usersize)
+		s = __kmem_cache_alias(name, size, align, flags, ctor);
+	if (s)
+		goto out_unlock;
+
+	cache_name = kstrdup_const(name, GFP_KERNEL);
+	if (!cache_name) {
+		err = -ENOMEM;
+		goto out_unlock;
+	}
+
+	s = create_cache(cache_name, size,
+			 calculate_alignment(flags, align, size),
+			 flags, useroffset, usersize, ctor, NULL, NULL);
+	if (IS_ERR(s)) {
+		err = PTR_ERR(s);
+		kfree_const(cache_name);
+	}
+
+out_unlock:
+	if (err) {
+		if (flags & SLAB_PANIC)
+			panic("kmem_cache_create: Failed to create slab '%s'. Error %d\n",
+				name, err);
+		else {
+			pr_warn("kmem_cache_create(%s) failed with error %d\n",
+				name, err);
+			dump_stack();
+		}
+		return NULL;
+	}
+	return s;
+}
+
+/**
+ * kmem_cache_create - Create a cache.
+ * @name: A string which is used in /proc/slabinfo to identify this cache.
+ * @size: The size of objects to be created in this cache.
+ * @align: The required alignment for the objects.
+ * @flags: SLAB flags
+ * @ctor: A constructor for the objects.
+ *
+ * Cannot be called within a interrupt, but can be interrupted.
+ * The @ctor is run when new pages are allocated by the cache.
+ *
+ * The flags are
+ *
+ * %SLAB_POISON - Poison the slab with a known test pattern (a5a5a5a5)
+ * to catch references to uninitialised memory.
+ *
+ * %SLAB_RED_ZONE - Insert `Red` zones around the allocated memory to check
+ * for buffer overruns.
+ *
+ * %SLAB_HWCACHE_ALIGN - Align the objects in this cache to a hardware
+ * cacheline.  This can be beneficial if you're counting cycles as closely
+ * as davem.
+ *
+ * Return: a pointer to the cache on success, NULL on failure.
+ */
+struct kmem_cache *
+kmem_cache_create(const char *name, unsigned int size, unsigned int align,
+		slab_flags_t flags, void (*ctor)(void *))
+{
+	return kmem_cache_create_usercopy(name, size, align, flags, 0, 0,
+					  ctor);
+}
+
+static inline int shutdown_memcg_caches(struct kmem_cache *s)
+{
+	return 0;
+}
+
+static inline void memcg_unlink_cache(struct kmem_cache *s)
+{
+}
+
+static inline void destroy_memcg_params(struct kmem_cache *s)
+{
+}
+
+
+void slab_kmem_cache_release(struct kmem_cache *s)
+{
+	__kmem_cache_release(s);
+	destroy_memcg_params(s);
+	kfree_const(s->name);
+	kmem_cache_free(kmem_cache, s);
+}
+
+static int shutdown_cache(struct kmem_cache *s)
+{
+	if (__kmem_cache_shutdown(s) != 0)
+		return -EBUSY;
+
+	memcg_unlink_cache(s);
+	list_del(&s->list);
+
+	if (s->flags & SLAB_TYPESAFE_BY_RCU) {
+		WARN_ON(1);
+		//list_add_tail(&s->list, &slab_caches_to_rcu_destroy);
+		//schedule_work(&slab_caches_to_rcu_destroy_work);
+	} else {
+		slab_kmem_cache_release(s);
+	}
+
+	return 0;
+}
+
+void kmem_cache_destroy(struct kmem_cache *s)
+{
+	int err;
+
+	if (unlikely(!s))
+		return;
+
+	s->refcount--;
+	if (s->refcount)
+		return;
+
+	err = shutdown_memcg_caches(s);
+	if (!err)
+		err = shutdown_cache(s);
+
+	if (err) {
+		pr_err("kmem_cache_destroy %s: Slab cache still has objects\n",
+		       s->name);
+		dump_stack();
+	}
 }

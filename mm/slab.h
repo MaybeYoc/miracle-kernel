@@ -149,6 +149,17 @@ extern void create_boot_cache(struct kmem_cache *, const char *name,
 			unsigned int size, slab_flags_t flags,
 			unsigned int useroffset, unsigned int usersize);
 
+int slab_unmergeable(struct kmem_cache *s);
+struct kmem_cache *find_mergeable(unsigned size, unsigned align,
+		slab_flags_t flags, const char *name, void (*ctor)(void *));
+struct kmem_cache *
+__kmem_cache_alias(const char *name, unsigned int size, unsigned int align,
+		   slab_flags_t flags, void (*ctor)(void *));
+
+slab_flags_t kmem_cache_flags(unsigned int object_size,
+	slab_flags_t flags, const char *name,
+	void (*ctor)(void *));
+
 /* Functions provided by the slab allocators */
 int __kmem_cache_create(struct kmem_cache *, slab_flags_t flags);
 
@@ -191,5 +202,8 @@ struct kmem_cache *create_kmalloc_cache(const char *name, unsigned int size,
 extern void create_boot_cache(struct kmem_cache *, const char *name,
 			unsigned int size, slab_flags_t flags,
 			unsigned int useroffset, unsigned int usersize);
-			
+
+int __kmem_cache_shutdown(struct kmem_cache *);
+void __kmem_cache_release(struct kmem_cache *);
+
 #endif /* MM_SLAB_H */

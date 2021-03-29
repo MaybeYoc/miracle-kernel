@@ -2220,6 +2220,33 @@ void __init kmem_cache_init(void)
 		nr_cpu_ids, nr_node_ids);
 }
 
+struct kmem_cache *
+__kmem_cache_alias(const char *name, unsigned int size, unsigned int align,
+		   slab_flags_t flags, void (*ctor)(void *))
+{
+	struct kmem_cache *s, *c;
+
+	s = find_mergeable(size, align, flags, name, ctor);
+	if (s) {
+		s->refcount++;
+
+		/*
+		 * Adjust the object sizes so that we clear
+		 * the complete object on kzalloc.
+		 */
+		s->object_size = max(s->object_size, size);
+		s->inuse = max(s->inuse, ALIGN(size, sizeof(void *)));
+
+		for_each_memcg_cache(c, s) {
+			c->object_size = s->object_size;
+			c->inuse = max(c->inuse, ALIGN(size, sizeof(void *)));
+		}
+
+	}
+
+	return s;
+}
+
 int __kmem_cache_create(struct kmem_cache *s, slab_flags_t flags)
 {
 	int err;

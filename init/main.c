@@ -18,6 +18,7 @@
 #include <linux/moduleparam.h>
 #include <linux/mm.h>
 #include <linux/percpu.h>
+#include <linux/slab.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>

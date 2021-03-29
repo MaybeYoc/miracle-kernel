@@ -14,6 +14,10 @@
 #include <linux/mmzone.h>
 #include <linux/gfp.h>
 #include <linux/types.h>
+/*
+ * Internal slab definitions
+ */
+#include <linux/slub_def.h>
 
 /*
  * Flags to pass to kmem_cache_create().
@@ -319,5 +323,38 @@ static __always_inline void *kmalloc(size_t size, gfp_t flags)
 	}
 	return __kmalloc(size, flags);
 }
+
+struct kmem_cache *kmem_cache_create(const char *name, unsigned int size,
+			unsigned int align, slab_flags_t flags,
+			void (*ctor)(void *));
+struct kmem_cache *kmem_cache_create_usercopy(const char *name,
+			unsigned int size, unsigned int align,
+			slab_flags_t flags,
+			unsigned int useroffset, unsigned int usersize,
+			void (*ctor)(void *));
+void kmem_cache_destroy(struct kmem_cache *);
+
+/*
+ * Please use this macro to create slab caches. Simply specify the
+ * name of the structure and maybe some flags that are listed above.
+ *
+ * The alignment of the struct determines object alignment. If you
+ * f.e. add ____cacheline_aligned_in_smp to the struct declaration
+ * then the objects will be properly aligned in SMP configurations.
+ */
+#define KMEM_CACHE(__struct, __flags)					\
+		kmem_cache_create(#__struct, sizeof(struct __struct),	\
+			__alignof__(struct __struct), (__flags), NULL)
+
+/*
+ * To whitelist a single field for copying to/from usercopy, use this
+ * macro instead for KMEM_CACHE() above.
+ */
+#define KMEM_CACHE_USERCOPY(__struct, __flags, __field)			\
+		kmem_cache_create_usercopy(#__struct,			\
+			sizeof(struct __struct),			\
+			__alignof__(struct __struct), (__flags),	\
+			offsetof(struct __struct, __field),		\
+			sizeof_field(struct __struct, __field), NULL)
 
 #endif	/* _LINUX_SLAB_H */
