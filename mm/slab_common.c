@@ -285,6 +285,8 @@ void __init create_kmalloc_caches(slab_flags_t flags)
 		}
 	}
 #endif
+	/* TODO */
+	slab_state = FULL;
 }
 
 /*
