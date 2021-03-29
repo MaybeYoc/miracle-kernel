@@ -11,6 +11,17 @@
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/rbtree.h>
+#include <linux/list.h>
+#include <linux/llist.h>
+#include <linux/bitops.h>
+#include <linux/percpu.h>
+#include <linux/uaccess.h>
+
+#include <asm/tlbflush.h>
+
+#include "internal.h"
 
 static bool vmap_initialized __read_mostly = false;
 
@@ -39,4 +50,8 @@ void __init vm_area_add_early(struct vm_struct *vm)
 	}
 	vm->next = *p;
 	*p = vm;
+}
+
+void __init vmalloc_init(void)
+{
 }

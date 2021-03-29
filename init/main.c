@@ -19,6 +19,7 @@
 #include <linux/mm.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -82,6 +83,7 @@ static void __init mm_init(void)
 {
 	mem_init();
 	kmem_cache_init();
+	vmalloc_init();
 }
 
 asmlinkage __visible void __init start_kernel(void)

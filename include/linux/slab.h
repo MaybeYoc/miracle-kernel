@@ -357,4 +357,14 @@ void kmem_cache_destroy(struct kmem_cache *);
 			offsetof(struct __struct, __field),		\
 			sizeof_field(struct __struct, __field), NULL)
 
+/**
+ * kzalloc - allocate memory. The memory is set to zero.
+ * @size: how many bytes of memory are required.
+ * @flags: the type of memory to allocate (see kmalloc).
+ */
+static inline void *kzalloc(size_t size, gfp_t flags)
+{
+	return kmalloc(size, flags | __GFP_ZERO);
+}
+
 #endif	/* _LINUX_SLAB_H */
