@@ -124,4 +124,7 @@ static inline void print_irqtrace_events(struct task_struct *curr)
 # define might_lock(lock) do { } while (0)
 # define might_lock_read(lock) do { } while (0)
 
+#define lockdep_is_held(lock) do { } while (0)
+#define lockdep_is_held_type(lock, r) do { } while (0)
+
 #endif /* __LINUX_LOCKDEP_H */

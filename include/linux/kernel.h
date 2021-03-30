@@ -11,8 +11,11 @@
 #include <linux/log2.h>
 #include <linux/typecheck.h>
 #include <linux/printk.h>
-#include <asm/byteorder.h>
+#include <linux/errno.h>
+#include <linux/err.h>
 #include <uapi/linux/kernel.h>
+
+#include <asm/byteorder.h>
 
 #define USHRT_MAX	((u16)(~0U))
 #define SHRT_MAX	((s16)(USHRT_MAX>>1))

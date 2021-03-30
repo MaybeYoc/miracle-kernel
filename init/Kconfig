@@ -333,6 +333,10 @@ config LD_DEAD_CODE_DATA_ELIMINATION
 
 endmenu		# General setup
 
+config BASE_SMALL
+	int
+	default 0
+
 source "arch/Kconfig"
 
 source "kernel/Kconfig.locks"

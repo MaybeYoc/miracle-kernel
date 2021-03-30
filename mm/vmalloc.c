@@ -54,4 +54,5 @@ void __init vm_area_add_early(struct vm_struct *vm)
 
 void __init vmalloc_init(void)
 {
+	/* TODO */
 }

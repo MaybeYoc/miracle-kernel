@@ -29,7 +29,7 @@
 #define ___GFP_THISNODE			BIT(11)
 #define ___GFP_NOWARN			BIT(12)
 
-#define ___GFP_BITS_SHIFT		BIT(13)
+#define ___GFP_BITS_SHIFT		13
 
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
@@ -178,5 +178,10 @@ extern void free_pages(unsigned long addr, unsigned int order);
 
 #define __free_page(page) __free_pages((page), 0)
 #define free_page(addr) free_pages((addr), 0)
+
+static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
+{
+	return false;
+}
 
 #endif /* __LINUX_GFP_H */
