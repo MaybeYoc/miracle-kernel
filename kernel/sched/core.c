@@ -17,3 +17,8 @@ asmlinkage __visible void schedule_tail(struct task_struct *prev)
 {
 
 }
+
+void __init sched_init(void)
+{
+
+}

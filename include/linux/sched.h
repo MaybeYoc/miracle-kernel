@@ -1,9 +1,15 @@
 #ifndef _LINUX_SCHED_H
 #define _LINUX_SCHED_H
 
+/*
+ * Define 'struct task_struct' and provide the main scheduler
+ * APIs (schedule(), wakeup variants, etc.)
+ */
+
 #include <linux/mm_types.h>
 #include <uapi/linux/sched.h>
 
+#include <asm/current.h>
 #include <asm/thread_info.h>
 
 #define PREEMPT_DISABLED	(1 + PREEMPT_ENABLED)

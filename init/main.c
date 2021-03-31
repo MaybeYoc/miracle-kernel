@@ -20,6 +20,8 @@
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/sched/init.h>
+#include <linux/radix-tree.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -110,6 +112,15 @@ asmlinkage __visible void __init start_kernel(void)
 	mm_init();
 
 	setup_per_cpu_pageset();
+
+	/*
+	 * Set up the scheduler prior starting any interrupts (such as the
+	 * timer interrupt). Full topology setup happens at smp_init()
+	 * time - but meanwhile we still have a functioning scheduler.
+	 */
+	sched_init();
+
+	radix_tree_init();
 
 	local_irq_enable();
 
