@@ -1,5 +1,37 @@
+/*
+ * Based on arch/arm/kernel/traps.c
+ *
+ * Copyright (C) 1995-2009 Russell King
+ * Copyright (C) 2012 ARM Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <linux/types.h>
+#include <linux/smp.h>
+
+#include <asm/daifflags.h>
+#include <asm/exception.h>
+#include <asm/ptrace.h>
 #include <asm/esr.h>
+
+static const char *handler[]= {
+	"prefetch abort",
+	"data abort",
+	"address exception",
+	"interrupt",
+	"undefined instruction",
+};
 
 static const char *esr_class_str[] = {
 	[0 ... ESR_ELx_EC_MAX]		= "UNRECOGNIZED EC",
@@ -65,4 +97,50 @@ void __pud_error(const char *file, int line, unsigned long val)
 void __pgd_error(const char *file, int line, unsigned long val)
 {
 	pr_err("%s:%d: bad pgd %016lx.\n", file, line, val);
+}
+
+/*
+ * bad_mode handles the impossible case in the exception vector. This is always
+ * fatal.
+ */
+asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
+{
+	pr_crit("Bad mode in %s handler detected on CPU%d, code 0x%08x -- %s\n",
+		handler[reason], smp_processor_id(), esr,
+		esr_get_class_string(esr));
+
+	local_daif_mask();
+	panic("bad mode");
+}
+
+asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
+{
+	pr_err("%s regs %p\n", __func__, regs);
+}
+
+asmlinkage void __exception do_sysinstr(unsigned int esr, struct pt_regs *regs)
+{
+	/* TODO */
+	WARN_ON(1);
+
+	/*
+	 * New SYS instructions may previously have been undefined at EL0. Fall
+	 * back to our usual undefined instruction handler so that we handle
+	 * these consistently.
+	 */
+	do_undefinstr(regs);
+}
+
+asmlinkage void do_serror(struct pt_regs *regs, unsigned int esr)
+{
+	panic("do serror");
+}
+
+/*
+ * bad_el0_sync handles unexpected, but potentially recoverable synchronous
+ * exceptions taken from EL0. Unlike bad_mode, this returns.
+ */
+asmlinkage void bad_el0_sync(struct pt_regs *regs, int reason, unsigned int esr)
+{
+	WARN_ON(1);
 }

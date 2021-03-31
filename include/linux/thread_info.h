@@ -10,6 +10,7 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/bitops.h>
+
 #include <asm/thread_info.h>
 
 #ifdef __KERNEL__

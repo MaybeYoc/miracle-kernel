@@ -19,6 +19,15 @@
 #ifndef __ASM_PTRACE_H
 #define __ASM_PTRACE_H
 
+/*
+ * If pt_regs.syscallno == NO_SYSCALL, then the thread is not executing
+ * a syscall -- i.e., its most recent entry into the kernel from
+ * userspace was not via SVC, or otherwise a tracer cancelled the syscall.
+ *
+ * This must have the value -1, for ABI compatibility with ptrace etc.
+ */
+#define NO_SYSCALL (-1)
+
 #include <uapi/asm/ptrace.h>
 
 /* Current Exception Level values, as contained in CurrentEL */
@@ -108,7 +117,17 @@ struct pt_regs {
 		};
 	};
 	u64 orig_x0;
-	u64 syscallno;
+#ifdef __AARCH64EB__
+	u32 unused2;
+	s32 syscallno;
+#else
+	s32 syscallno;
+	u32 unused2;
+#endif
+
+	u64 orig_addr_limit;
+	u64 unused;	// maintain 16 byte alignment
+	u64 stackframe[2];
 };
 
 #define arch_has_single_step()	(1)
@@ -181,6 +200,16 @@ extern unsigned long profile_pc(struct pt_regs *regs);
 #else
 #define profile_pc(regs) instruction_pointer(regs)
 #endif
+
+static inline bool in_syscall(struct pt_regs const *regs)
+{
+	return regs->syscallno != NO_SYSCALL;
+}
+
+static inline void forget_syscall(struct pt_regs *regs)
+{
+	regs->syscallno = NO_SYSCALL;
+}
 
 #endif /* __ASSEMBLY__ */
 #endif

@@ -2,6 +2,7 @@
 #define _LINUX_BUG_H
 
 #include <linux/compiler.h>
+
 #include <asm/bug.h>
 
 #ifdef __CHECKER__

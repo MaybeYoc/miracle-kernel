@@ -3,6 +3,9 @@
 #
 
 obj-y := panic.o exit.o params.o cpu.o
+obj-y += sched/
 obj-y += locking/
 obj-y += printk/
+obj-y += irq/
 obj-$(CONFIG_SMP) += smp.o
+obj-$(CONFIG_GCC_PLUGIN_STACKLEAK) += stackleak.o

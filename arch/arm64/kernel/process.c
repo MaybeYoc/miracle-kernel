@@ -20,6 +20,7 @@
 
 #include <stdarg.h>
 #include <linux/sched.h>
+#include <linux/percpu.h>
 
 /*
  * Called from setup_new_exec() after (COMPAT_)SET_PERSONALITY.
@@ -31,3 +32,13 @@ unsigned long get_wchan(struct task_struct *p)
 {
 	return 0;
 }
+
+/*
+ * We store our current task in sp_el0, which is clobbered by userspace. Keep a
+ * shadow copy so that we can restore this upon entry from userspace.
+ *
+ * This is *only* for exception entry from EL0, and is not valid until we
+ * __switch_to() a user task.
+ */
+DEFINE_PER_CPU(struct task_struct *, __entry_task);
+

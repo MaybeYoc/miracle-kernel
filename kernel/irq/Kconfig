@@ -1,0 +1,4 @@
+menu "IRQ subsystem"
+# Options selectable by the architecture code
+
+endmenu

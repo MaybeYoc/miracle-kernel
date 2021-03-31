@@ -35,12 +35,19 @@ struct task_struct {
 	pid_t pid;
 	pid_t tgid;
 
+#ifdef CONFIG_STACKPROTECTOR
+	/* Canary value for the -fstack-protector GCC feature: */
+	unsigned long			stack_canary;
+#endif
 	/*
 	 * children/sibling forms the list of my natural children
 	 */
 	struct list_head children;	/* list of my children */
 	struct list_head sibling;	/* linkage in my parent's children list */
 	struct task_struct *group_leader;	/* threadgroup leader */
+
+	/* CPU-specific state of this task: */
+	struct thread_struct		thread;
 };
 
 static inline pid_t task_pid_nr(struct task_struct *tsk)

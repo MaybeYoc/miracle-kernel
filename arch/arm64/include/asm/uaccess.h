@@ -18,6 +18,17 @@
 #ifndef __ASM_UACCESS_H
 #define __ASM_UACCESS_H
 
+#define VERIFY_READ 0
+#define VERIFY_WRITE 1
+
+#define KERNEL_DS	(-1UL)
+#define get_ds()	(KERNEL_DS)
+
+#define USER_DS		((UL(1) << MAX_USER_VA_BITS) - 1)
+#define get_fs()	(current_thread_info()->addr_limit)
+
+#ifndef __ASSEMBLY__
+
 /*
  * User space memory access functions
  */
@@ -28,15 +39,6 @@
 #include <asm/ptrace.h>
 #include <asm/errno.h>
 #include <asm/memory.h>
-
-#define VERIFY_READ 0
-#define VERIFY_WRITE 1
-
-#define KERNEL_DS	(-1UL)
-#define get_ds()	(KERNEL_DS)
-
-#define USER_DS		TASK_SIZE_64
-#define get_fs()	(current_thread_info()->addr_limit)
 
 static inline void set_fs(mm_segment_t fs)
 {
@@ -263,4 +265,5 @@ static inline __must_check long strnlen_user(const char __user *str, long n)
 	BUG_ON(1);
 }
 
+#endif /* __ASSEMBLY__ */
 #endif /* __ASM_UACCESS_H */
