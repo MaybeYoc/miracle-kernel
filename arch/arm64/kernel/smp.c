@@ -48,3 +48,11 @@ void __init smp_init_cpus(void)
 	for (i = 0; i < 8; i++)
 		set_cpu_possible(i, true);
 }
+
+/*
+ * Main handler for inter-processor interrupts
+ */
+void handle_IPI(int ipinr, struct pt_regs *regs)
+{
+	BUG_ON(1);
+}

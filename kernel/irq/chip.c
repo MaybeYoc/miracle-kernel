@@ -35,3 +35,13 @@ struct irq_data *irq_get_irq_data(unsigned int irq)
 
 	return desc ? &desc->irq_data : NULL;
 }
+
+void handle_percpu_devid_irq(struct irq_desc *desc)
+{
+
+}
+
+void handle_fasteoi_irq(struct irq_desc *desc)
+{
+
+}

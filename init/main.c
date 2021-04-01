@@ -24,6 +24,7 @@
 #include <linux/radix-tree.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/jump_label.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -35,6 +36,12 @@ enum system_states system_state __read_mostly;
 char __initdata boot_command_line[COMMAND_LINE_SIZE];
 
 extern const struct obs_kernel_param __setup_start[], __setup_end[];
+
+/*
+ * Used to generate warnings if static_key manipulation functions are used
+ * before jump_label_init is called.
+ */
+bool static_key_initialized __read_mostly;
 
 /* Check for early params. */
 static int __init do_early_param(char *param, char *val,
@@ -110,6 +117,8 @@ asmlinkage __visible void __init start_kernel(void)
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
 	parse_early_param();
+
+	jump_label_init();
 
 	mm_init();
 

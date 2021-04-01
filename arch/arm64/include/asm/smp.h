@@ -37,6 +37,7 @@
 #ifndef __ASSEMBLY__
 
 #include <asm/percpu.h>
+#include <asm/ptrace.h>
 
 #include <linux/threads.h>
 #include <linux/cpumask.h>
@@ -98,6 +99,11 @@ static inline void cpu_panic_kernel(void)
  * SMP operations.
  */
 extern void smp_init_cpus(void);
+
+/*
+ * Called from C code, this handles an IPI.
+ */
+extern void handle_IPI(int ipinr, struct pt_regs *regs);
 
 #endif /* ifndef __ASSEMBLY__ */
 

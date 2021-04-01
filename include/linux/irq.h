@@ -692,4 +692,10 @@ static inline void irq_data_update_effective_affinity(struct irq_data *d,
 	cpumask_copy(d->common->effective_affinity, m);
 }
 
+extern int irq_set_percpu_devid(unsigned int irq);
+extern int irq_set_percpu_devid_partition(unsigned int irq,
+					  const struct cpumask *affinity);
+extern int irq_get_percpu_devid_partition(unsigned int irq,
+					  struct cpumask *affinity);
+					  
 #endif /* _LINUX_IRQ_H */
