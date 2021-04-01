@@ -7,5 +7,6 @@
 #
 
 obj-y := test_driver.o
+obj-y				+= irqchip/
 obj-$(CONFIG_OF)		+= of/
 obj-y += tty/

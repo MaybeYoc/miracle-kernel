@@ -2,6 +2,8 @@
 #ifndef _LINUX_INIT_H
 #define _LINUX_INIT_H
 
+#include <linux/compiler.h>
+
 /* Built-in __init functions needn't be compiled with retpoline */
 #if defined(__noretpoline) && !defined(MODULE)
 #define __noinitretpoline __noretpoline

@@ -39,4 +39,7 @@ config OF_RESERVED_MEM
 config OF_NUMA
 	bool
 
+config OF_IRQ
+	def_bool y
+
 endif # OF

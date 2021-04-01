@@ -21,7 +21,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/kernel_stat.h>
 #include <linux/irq.h>
 #include <linux/percpu.h>
+#include <linux/init.h>
+#include <linux/irqchip.h>
+
+#include <asm/memory.h>
 
 DEFINE_PER_CPU(unsigned long *, irq_stack_ptr);
+
+/* irq stack only needs to be 16 byte aligned - not IRQ_STACK_SIZE aligned. */
+DEFINE_PER_CPU_ALIGNED(unsigned long [IRQ_STACK_SIZE/sizeof(long)], irq_stack);
+
+static void init_irq_stacks(void)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu)
+		per_cpu(irq_stack_ptr, cpu) = per_cpu(irq_stack, cpu);
+}
+
+void __init init_IRQ(void)
+{
+	init_irq_stacks();
+	irqchip_init();
+	if (!handle_arch_irq)
+		panic("No interrupt controller found.");
+}

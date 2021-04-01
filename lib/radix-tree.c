@@ -35,7 +35,8 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/xarray.h>
-
+#include <linux/idr.h>
+#include <linux/cpuhotplug.h>
 
 /*
  * Radix tree node cache.
@@ -650,7 +651,6 @@ static int __radix_tree_create(struct radix_tree_root *root,
 	return 0;
 }
 
-#if 0 /* TODO */
 /*
  * Free any nodes below this node.  The tree is presumed to not need
  * shrinking, and any user data in the tree is presumed to not need a
@@ -684,7 +684,6 @@ static void radix_tree_free_nodes(struct radix_tree_node *node)
 		}
 	}
 }
-#endif
 
 static inline int insert_entries(struct radix_tree_node *node,
 		void __rcu **slot, void *item, bool replace)
@@ -1536,7 +1535,6 @@ void __rcu **idr_get_free(struct radix_tree_root *root,
 	return slot;
 }
 
-#if 0 /* TODO */
 /**
  * idr_destroy - release all internal memory from an IDR
  * @idr: idr handle
@@ -1556,7 +1554,6 @@ void idr_destroy(struct idr *idr)
 	idr->idr_rt.xa_head = NULL;
 	root_tag_set(&idr->idr_rt, IDR_FREE);
 }
-#endif
 
 static void
 radix_tree_node_ctor(void *arg)
@@ -1567,7 +1564,6 @@ radix_tree_node_ctor(void *arg)
 	INIT_LIST_HEAD(&node->private_list);
 }
 
-#if 0 /* TODO */
 static int radix_tree_cpu_dead(unsigned int cpu)
 {
 	struct radix_tree_preload *rtp;
@@ -1583,10 +1579,11 @@ static int radix_tree_cpu_dead(unsigned int cpu)
 	}
 	return 0;
 }
-#endif
 
 void __init radix_tree_init(void)
 {
+	int ret;
+
 	BUILD_BUG_ON(RADIX_TREE_MAX_TAGS + __GFP_BITS_SHIFT > 32);
 	BUILD_BUG_ON(ROOT_IS_IDR & ~GFP_ZONEMASK);
 	BUILD_BUG_ON(XA_CHUNK_SIZE > 255);
@@ -1594,7 +1591,7 @@ void __init radix_tree_init(void)
 			sizeof(struct radix_tree_node), 0,
 			SLAB_PANIC | SLAB_RECLAIM_ACCOUNT,
 			radix_tree_node_ctor);
-	//ret = cpuhp_setup_state_nocalls(CPUHP_RADIX_DEAD, "lib/radix:dead",
-	//				NULL, radix_tree_cpu_dead);
-	//WARN_ON(ret < 0);
+	ret = cpuhp_setup_state_nocalls(CPUHP_RADIX_DEAD, "lib/radix:dead",
+					NULL, radix_tree_cpu_dead);
+	WARN_ON(ret < 0);
 }

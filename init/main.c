@@ -22,6 +22,8 @@
 #include <linux/vmalloc.h>
 #include <linux/sched/init.h>
 #include <linux/radix-tree.h>
+#include <linux/interrupt.h>
+#include <linux/irq.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -121,6 +123,10 @@ asmlinkage __visible void __init start_kernel(void)
 	sched_init();
 
 	radix_tree_init();
+
+	/* init some links before init_ISA_irqs() */
+	early_irq_init();
+	init_IRQ();
 
 	local_irq_enable();
 

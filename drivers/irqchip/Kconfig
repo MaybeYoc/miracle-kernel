@@ -1,0 +1,14 @@
+menu "IRQ chip support"
+
+config IRQCHIP
+	def_bool y
+	depends on OF_IRQ
+
+config ARM_GIC
+	bool
+
+config ARM_GIC_MAX_NR
+	int
+	default 1
+
+endmenu

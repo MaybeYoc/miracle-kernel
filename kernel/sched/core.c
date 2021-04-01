@@ -6,6 +6,7 @@
  *  Copyright (C) 1991-2002  Linus Torvalds
  */
 
+#include <linux/kernel_stat.h>
 #include <linux/linkage.h>
 #include <linux/sched.h>
 
@@ -22,3 +23,6 @@ void __init sched_init(void)
 {
 
 }
+
+DEFINE_PER_CPU(struct kernel_stat, kstat);
+DEFINE_PER_CPU(struct kernel_cpustat, kernel_cpustat);

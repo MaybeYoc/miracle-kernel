@@ -15,6 +15,7 @@ config ARM64
 	select OF
 	select OF_EARLY_FLATTREE
 	select OF_RESERVED_MEM
+	select ARM_GIC
 	help
 	  ARM 64-bit (AArch64) Linux support.
 

@@ -3,4 +3,6 @@ menu "Device Drivers"
 
 source "drivers/of/Kconfig"
 
+source "drivers/irqchip/Kconfig"
+
 endmenu

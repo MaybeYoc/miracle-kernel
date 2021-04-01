@@ -13,5 +13,7 @@ static inline int nr_legacy_irqs(void)
 	return 0;
 }
 
+void init_IRQ(void);
+
 #endif /* !__ASSEMBLER__ */
 #endif

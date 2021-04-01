@@ -38,13 +38,9 @@ typedef struct cpumask { DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
 extern unsigned int nr_cpu_ids;
 #endif
 
-#ifdef CONFIG_CPUMASK_OFFSTACK
 /* Assuming NR_CPUS is huge, a runtime limit is more efficient.  Also,
  * not all bits may be allocated. */
 #define nr_cpumask_bits	nr_cpu_ids
-#else
-#define nr_cpumask_bits	((unsigned int)NR_CPUS)
-#endif
 
 /*
  * The following particular system cpumasks and operations manage
@@ -699,7 +695,6 @@ static inline unsigned int cpumask_size(void)
  * Please also note that __cpumask_var_read_mostly can be used to declare
  * a cpumask_var_t variable itself (not its content) as read mostly.
  */
-#ifdef CONFIG_CPUMASK_OFFSTACK
 typedef struct cpumask *cpumask_var_t;
 
 #define this_cpu_cpumask_var_ptr(x)	this_cpu_read(x)
@@ -717,54 +712,6 @@ static inline bool cpumask_available(cpumask_var_t mask)
 {
 	return mask != NULL;
 }
-
-#else
-typedef struct cpumask cpumask_var_t[1];
-
-#define this_cpu_cpumask_var_ptr(x) this_cpu_ptr(x)
-#define __cpumask_var_read_mostly
-
-static inline bool alloc_cpumask_var(cpumask_var_t *mask, gfp_t flags)
-{
-	return true;
-}
-
-static inline bool alloc_cpumask_var_node(cpumask_var_t *mask, gfp_t flags,
-					  int node)
-{
-	return true;
-}
-
-static inline bool zalloc_cpumask_var(cpumask_var_t *mask, gfp_t flags)
-{
-	cpumask_clear(*mask);
-	return true;
-}
-
-static inline bool zalloc_cpumask_var_node(cpumask_var_t *mask, gfp_t flags,
-					  int node)
-{
-	cpumask_clear(*mask);
-	return true;
-}
-
-static inline void alloc_bootmem_cpumask_var(cpumask_var_t *mask)
-{
-}
-
-static inline void free_cpumask_var(cpumask_var_t mask)
-{
-}
-
-static inline void free_bootmem_cpumask_var(cpumask_var_t mask)
-{
-}
-
-static inline bool cpumask_available(cpumask_var_t mask)
-{
-	return true;
-}
-#endif /* CONFIG_CPUMASK_OFFSTACK */
 
 /* It's common to want to use cpu_all_mask in struct member initializers,
  * so it has to refer to an address rather than a pointer. */

@@ -21,7 +21,7 @@
 static inline int numa_node_id(void)
 {
 #ifdef CONFIG_NUMA
-	// return cpu_to_node(raw_smp_processor_id());
+	return cpu_to_node(raw_smp_processor_id());
 #endif
 	return 0;
 }

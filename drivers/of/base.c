@@ -27,6 +27,8 @@
 #include <linux/of_device.h>
 #include <linux/init.h>
 #include <linux/cpumask.h>
+#include <linux/console.h>
+#include <linux/slab.h>
 
 #include "of_private.h"
 
@@ -132,7 +134,7 @@ static void __of_free_phandle_cache(void)
 	for (k = 0; k < cache_entries; k++)
 		of_node_put(phandle_cache[k]);
 
-//	kfree(phandle_cache); /* TODO */
+	kfree(phandle_cache);
 	phandle_cache = NULL;
 }
 
@@ -193,8 +195,8 @@ void of_populate_phandle_cache(void)
 	cache_entries = roundup_pow_of_two(phandles);
 	phandle_cache_mask = cache_entries - 1;
 
-	//phandle_cache = kcalloc(cache_entries, sizeof(*phandle_cache),
-	//			GFP_ATOMIC); /* TODO */
+	phandle_cache = kcalloc(cache_entries, sizeof(*phandle_cache),
+				GFP_KERNEL);
 	if (!phandle_cache)
 		goto out;
 
@@ -1485,7 +1487,6 @@ int of_parse_phandle_with_args_map(const struct device_node *np,
 				   const char *stem_name,
 				   int index, struct of_phandle_args *out_args)
 {
-#if 0 /* TODO */
 	char *cells_name, *map_name = NULL, *mask_name = NULL;
 	char *pass_name = NULL;
 	struct device_node *cur, *new = NULL;
@@ -1620,8 +1621,6 @@ free:
 	kfree(pass_name);
 
 	return ret;
-#endif
-	return 0;
 }
 
 /**
@@ -2057,7 +2056,6 @@ int of_alias_get_highest_id(const char *stem)
  */
 bool of_console_check(struct device_node *dn, char *name, int index)
 {
-#if 0
 	if (!dn || dn != of_stdout || console_set_on_cmdline)
 		return false;
 
@@ -2066,8 +2064,6 @@ bool of_console_check(struct device_node *dn, char *name, int index)
 	 * warnings: printk, UART and console drivers expect char pointer.
 	 */
 	return !add_preferred_console(name, index, (char *)of_stdout_options);
-#endif /* TODO */
-	return false;
 }
 
 /**

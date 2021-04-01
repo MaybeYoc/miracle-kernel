@@ -854,8 +854,6 @@ int __init_memblock memblock_free(phys_addr_t base, phys_addr_t size)
 	memblock_dbg("   memblock_free: [%pa-%pa] %pF\n", &base, &end,
 		     (void *)_RET_IP_);
 
-	/* TODO */
-	// kfree
 	return memblock_remove_range(&memblock.reserved, base, size);
 }
 
@@ -974,8 +972,6 @@ static phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
 		 * The min_count is set to 0 so that memblock allocations are
 		 * never reported as leaks.
 		 */
-		/* TODO */
-		//kmemleak_alloc_phys(found, size, 0, 0);
 		return found;
 	}
 	return 0;

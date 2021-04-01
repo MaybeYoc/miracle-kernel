@@ -129,3 +129,21 @@ asmlinkage __visible int printk(const char *fmt, ...)
 
 	return r;
 }
+
+/**
+ * add_preferred_console - add a device to the list of preferred consoles.
+ * @name: device name
+ * @idx: device index
+ * @options: options for this console
+ *
+ * The last preferred console added will be used for kernel messages
+ * and stdin/out/err for init.  Normally this is used by console_setup
+ * above to handle user-supplied console arguments; however it can also
+ * be used by arch-specific code either to override the user or more
+ * commonly to provide a default console (ie from PROM variables) when
+ * the user has not supplied one.
+ */
+int add_preferred_console(char *name, int idx, char *options)
+{
+	return 0;
+}

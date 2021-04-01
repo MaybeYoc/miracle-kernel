@@ -88,8 +88,6 @@ again:
 	return next;
 }
 
-/* These are not inline because of header tangles. */
-#ifdef CONFIG_CPUMASK_OFFSTACK
 /**
  * alloc_cpumask_var_node - allocate a struct cpumask on a given node
  * @mask: pointer to cpumask_var_t where the cpumask is returned
@@ -176,7 +174,6 @@ void __init free_bootmem_cpumask_var(cpumask_var_t mask)
 {
 	memblock_free_early(__pa(mask), cpumask_size());
 }
-#endif
 
 /**
  * cpumask_local_spread - select the i'th cpu with local numa cpu's first

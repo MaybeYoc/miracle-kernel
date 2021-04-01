@@ -1,3 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0
 
-obj-y := handle.o
+obj-y := handle.o irqdesc.o manage.o dummychip.o	\
+		softirq.o irqdomain.o chip.o
