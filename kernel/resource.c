@@ -18,6 +18,7 @@
 #include <linux/mm.h>
 #include <linux/resource_ext.h>
 #include <linux/seq_file.h>
+#include <linux/wait.h>
 
 #include <asm/memory.h>
 
@@ -1096,4 +1097,124 @@ void resource_list_free(struct list_head *head)
 
 	list_for_each_entry_safe(entry, tmp, head, node)
 		resource_list_destroy_entry(entry);
+}
+
+/*
+ * This is compatibility stuff for IO resources.
+ *
+ * Note how this, unlike the above, knows about
+ * the IO flag meanings (busy etc).
+ *
+ * request_region creates a new busy region.
+ *
+ * release_region releases a matching busy region.
+ */
+
+static DECLARE_WAIT_QUEUE_HEAD(muxed_resource_wait);
+
+/**
+ * __request_region - create a new busy resource region
+ * @parent: parent resource descriptor
+ * @start: resource start address
+ * @n: resource region size
+ * @name: reserving caller's ID string
+ * @flags: IO resource flags
+ */
+struct resource * __request_region(struct resource *parent,
+				   resource_size_t start, resource_size_t n,
+				   const char *name, int flags)
+{
+	DECLARE_WAITQUEUE(wait, current);
+	struct resource *res = alloc_resource(GFP_KERNEL);
+
+	if (!res)
+		return NULL;
+
+	res->name = name;
+	res->start = start;
+	res->end = start + n - 1;
+
+	write_lock(&resource_lock);
+
+	for (;;) {
+		struct resource *conflict;
+
+		res->flags = resource_type(parent) | resource_ext_type(parent);
+		res->flags |= IORESOURCE_BUSY | flags;
+		res->desc = parent->desc;
+
+		conflict = __request_resource(parent, res);
+		if (!conflict)
+			break;
+		if (conflict != parent) {
+			if (!(conflict->flags & IORESOURCE_BUSY)) {
+				parent = conflict;
+				continue;
+			}
+		}
+		if (conflict->flags & flags & IORESOURCE_MUXED) {
+			add_wait_queue(&muxed_resource_wait, &wait);
+			write_unlock(&resource_lock);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule();
+			remove_wait_queue(&muxed_resource_wait, &wait);
+			write_lock(&resource_lock);
+			continue;
+		}
+		/* Uhhuh, that didn't work out.. */
+		free_resource(res);
+		res = NULL;
+		break;
+	}
+	write_unlock(&resource_lock);
+	return res;
+}
+
+
+/**
+ * __release_region - release a previously reserved resource region
+ * @parent: parent resource descriptor
+ * @start: resource start address
+ * @n: resource region size
+ *
+ * The described resource region must match a currently busy region.
+ */
+void __release_region(struct resource *parent, resource_size_t start,
+		      resource_size_t n)
+{
+	struct resource **p;
+	resource_size_t end;
+
+	p = &parent->child;
+	end = start + n - 1;
+
+	write_lock(&resource_lock);
+
+	for (;;) {
+		struct resource *res = *p;
+
+		if (!res)
+			break;
+		if (res->start <= start && res->end >= end) {
+			if (!(res->flags & IORESOURCE_BUSY)) {
+				p = &res->child;
+				continue;
+			}
+			if (res->start != start || res->end != end)
+				break;
+			*p = res->sibling;
+			write_unlock(&resource_lock);
+			if (res->flags & IORESOURCE_MUXED)
+				wake_up(&muxed_resource_wait);
+			free_resource(res);
+			return;
+		}
+		p = &res->sibling;
+	}
+
+	write_unlock(&resource_lock);
+
+	printk(KERN_WARNING "Trying to free nonexistent resource "
+		"<%016llx-%016llx>\n", (unsigned long long)start,
+		(unsigned long long)end);
 }

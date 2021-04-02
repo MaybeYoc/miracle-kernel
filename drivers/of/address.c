@@ -5,6 +5,8 @@
 #include <linux/fwnode.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/logic_pio.h>
+#include <linux/pci.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/sizes.h>
@@ -595,8 +597,7 @@ static u64 __of_translate_address(struct device_node *dev,
 
 	/* Translate */
 	for (;;) {
-		/* TODO */
-		//struct logic_pio_hwaddr *iorange;
+		struct logic_pio_hwaddr *iorange;
 
 		/* Switch to parent bus */
 		of_node_put(dev);
@@ -614,16 +615,14 @@ static u64 __of_translate_address(struct device_node *dev,
 		 * For indirectIO device which has no ranges property, get
 		 * the address from reg directly.
 		 */
-		//iorange = find_io_range_by_fwnode(&dev->fwnode);
-		/* TODO */
-		BUG_ON(1);
-		/*if (iorange && (iorange->flags != LOGIC_PIO_CPU_MMIO)) {
+		iorange = find_io_range_by_fwnode(&dev->fwnode);
+		if (iorange && (iorange->flags != LOGIC_PIO_CPU_MMIO)) {
 			result = of_read_number(addr + 1, na - 1);
 			pr_debug("indirectIO matched(%pOF) 0x%llx\n",
 				 dev, result);
 			*host = of_node_get(dev);
 			break;
-		}*/
+		}
 
 		/* Get new parent bus and counts */
 		pbus = of_match_bus(parent);
@@ -656,12 +655,10 @@ static u64 __of_translate_address(struct device_node *dev,
 
 u64 of_translate_address(struct device_node *dev, const __be32 *in_addr)
 {
-	struct device_node *host = NULL;
-	u64 ret = 0;
+	struct device_node *host;
+	u64 ret;
 
-	/* TODO */
-	//BUG_ON(1);
-	//ret = __of_translate_address(dev, in_addr, "ranges", &host);
+	ret = __of_translate_address(dev, in_addr, "ranges", &host);
 	if (host) {
 		of_node_put(host);
 		return OF_BAD_ADDR;
@@ -732,15 +729,11 @@ static u64 of_translate_ioport(struct device_node *dev, const __be32 *in_addr,
 	taddr = __of_translate_address(dev, in_addr, "ranges", &host);
 	if (host) {
 		/* host-specific port access */
-		//port = logic_pio_trans_hwaddr(&host->fwnode, taddr, size);
-		BUG_ON(1);
-		/* TODO */
+		port = logic_pio_trans_hwaddr(&host->fwnode, taddr, size);
 		of_node_put(host);
 	} else {
 		/* memory-mapped I/O range */
-		/* TODO */
-		BUG_ON(1);
-		//port = pci_address_to_pio(taddr);
+		port = pci_address_to_pio(taddr);
 	}
 
 	if (port == (unsigned long)-1)
@@ -762,8 +755,8 @@ static int __of_address_to_resource(struct device_node *dev,
 	else
 		return -EINVAL;
 
-	//if (taddr == OF_BAD_ADDR)
-	//	return -EINVAL;
+	if (taddr == OF_BAD_ADDR)
+		return -EINVAL;
 	memset(r, 0, sizeof(struct resource));
 
 	r->start = taddr;
@@ -818,7 +811,6 @@ struct device_node *of_find_matching_node_by_address(struct device_node *from,
 	return NULL;
 }
 
-
 /**
  * of_iomap - Maps the memory mapped IO for a given device_node
  * @device:	the device whose io range will be mapped
@@ -861,14 +853,12 @@ void __iomem *of_io_request_and_map(struct device_node *np, int index,
 
 	if (!name)
 		name = res.name;
-	/* TODO */
-	BUG_ON(1);
-	//if (!request_mem_region(res.start, resource_size(&res), name))
-	//	return IOMEM_ERR_PTR(-EBUSY);
+	if (!request_mem_region(res.start, resource_size(&res), name))
+		return IOMEM_ERR_PTR(-EBUSY);
 
 	mem = ioremap(res.start, resource_size(&res));
 	if (!mem) {
-		//release_mem_region(res.start, resource_size(&res));
+		release_mem_region(res.start, resource_size(&res));
 		return IOMEM_ERR_PTR(-ENOMEM);
 	}
 
