@@ -21,15 +21,41 @@
 #include <linux/init.h>
 #include <linux/mm_types.h>
 #include <linux/of_fdt.h>
+#include <linux/ioport.h>
+#include <linux/memblock.h>
 
 #include <asm/daifflags.h>
 #include <asm/fixmap.h>
 #include <asm/sections.h>
 #include <asm/early_ioremap.h>
 #include <asm/mmu_context.h>
-#include <asm/memblock.h>
+
+
+static int num_standard_resources;
+static struct resource *standard_resources;
 
 phys_addr_t __fdt_pointer __initdata;
+
+/*
+ * Standard memory resources
+ */
+static struct resource mem_res[] = {
+	{
+		.name = "Kernel code",
+		.start = 0,
+		.end = 0,
+		.flags = IORESOURCE_SYSTEM_RAM
+	},
+	{
+		.name = "Kernel data",
+		.start = 0,
+		.end = 0,
+		.flags = IORESOURCE_SYSTEM_RAM
+	}
+};
+
+#define kernel_code mem_res[0]
+#define kernel_data mem_res[1]
 
 /*
  * The recorded values of x0 .. x3 upon kernel entry.
@@ -74,6 +100,75 @@ void __init smp_setup_processor_id(void)
 		(unsigned long)mpidr, read_cpuid_id());
 }
 
+static void __init request_standard_resources(void)
+{
+	struct memblock_region *region;
+	struct resource *res;
+	unsigned long i = 0;
+
+	kernel_code.start   = __pa_symbol(_text);
+	kernel_code.end     = __pa_symbol(__init_begin - 1);
+	kernel_data.start   = __pa_symbol(_sdata);
+	kernel_data.end     = __pa_symbol(_end - 1);
+
+	num_standard_resources = memblock.memory.cnt;
+	standard_resources = memblock_alloc_low(num_standard_resources *
+					        sizeof(*standard_resources),
+					        SMP_CACHE_BYTES);
+
+	for_each_memblock(memory, region) {
+		res = &standard_resources[i++];
+		if (memblock_is_nomap(region)) {
+			res->name  = "reserved";
+			res->flags = IORESOURCE_MEM;
+		} else {
+			res->name  = "System RAM";
+			res->flags = IORESOURCE_SYSTEM_RAM | IORESOURCE_BUSY;
+		}
+		res->start = __pfn_to_phys(memblock_region_memory_base_pfn(region));
+		res->end = __pfn_to_phys(memblock_region_memory_end_pfn(region)) - 1;
+
+		request_resource(&iomem_resource, res);
+
+		if (kernel_code.start >= res->start &&
+		    kernel_code.end <= res->end)
+			request_resource(res, &kernel_code);
+		if (kernel_data.start >= res->start &&
+		    kernel_data.end <= res->end)
+			request_resource(res, &kernel_data);
+	}
+}
+
+static int __init reserve_memblock_reserved_regions(void)
+{
+	u64 i, j;
+
+	for (i = 0; i < num_standard_resources; ++i) {
+		struct resource *mem = &standard_resources[i];
+		phys_addr_t r_start, r_end, mem_size = resource_size(mem);
+
+		if (!memblock_is_region_reserved(mem->start, mem_size))
+			continue;
+
+		for_each_reserved_mem_region(j, &r_start, &r_end) {
+			resource_size_t start, end;
+
+			start = max(PFN_PHYS(PFN_DOWN(r_start)), mem->start);
+			end = min(PFN_PHYS(PFN_UP(r_end)) - 1, mem->end);
+
+			if (start > mem->end || end < mem->start)
+				continue;
+
+			reserve_region_with_split(mem, start, end, "reserved");
+		}
+	}
+
+	return 0;
+}
+arch_initcall(reserve_memblock_reserved_regions);
+
+u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
+
 void __init setup_arch(char **cmdline_p)
 {
 	init_mm.start_code = (unsigned long) _text;
@@ -110,6 +205,8 @@ void __init setup_arch(char **cmdline_p)
 	unflatten_device_tree();
 
 	bootmem_init();
+
+	request_standard_resources();
 
 	smp_init_cpus();
 

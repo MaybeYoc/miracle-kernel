@@ -14,4 +14,6 @@ extern void irq_enter(void);
  */
 extern void irq_exit(void);
 
+extern void synchronize_irq(unsigned int irq);
+
 #endif /* LINUX_HARDIRQ_H */

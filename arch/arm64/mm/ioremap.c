@@ -5,12 +5,13 @@
 
 void __iomem *__ioremap(phys_addr_t phys_addr, size_t size, pgprot_t prot)
 {
-	return NULL;
+	/* TODO */
+	return early_ioremap(phys_addr, size);
 }
 
 void __iounmap(volatile void __iomem *io_addr)
 {
-
+	/* TODO */
 }
 
 void __iomem *ioremap_cache(phys_addr_t phys_addr, size_t size)

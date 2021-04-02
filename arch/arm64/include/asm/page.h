@@ -23,6 +23,7 @@
 
 #ifndef __ASSEMBLY__
 
+#include <asm/pgtable-prot.h>
 #include <asm/pgtable-types.h>
 
 extern void __cpu_clear_user_page(void *p, unsigned long user);

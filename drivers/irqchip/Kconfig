@@ -11,4 +11,7 @@ config ARM_GIC_MAX_NR
 	int
 	default 1
 
+config GIC_NON_BANKED
+	bool
+
 endmenu

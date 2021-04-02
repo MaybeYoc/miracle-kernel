@@ -6,6 +6,9 @@
 #include <linux/irqhandler.h>
 #include <linux/spinlock.h>
 #include <linux/module.h>
+#include <linux/irqnr.h>
+#include <linux/wait.h>
+#include <linux/mutex.h>
 
 /**
  * struct irq_desc - interrupt descriptor
@@ -67,6 +70,8 @@ struct irq_desc {
 #endif
 	unsigned long		threads_oneshot;
 	atomic_t		threads_active;
+	wait_queue_head_t       wait_for_threads;
+	struct mutex		request_mutex;
 	int			parent_irq;
 	struct module		*owner;
 	const char		*name;
@@ -126,6 +131,18 @@ static inline int handle_domain_irq(struct irq_domain *domain,
 				    unsigned int hwirq, struct pt_regs *regs)
 {
 	return __handle_domain_irq(domain, hwirq, true, regs);
+}
+
+static inline void
+irq_set_lockdep_class(unsigned int irq, struct lock_class_key *lock_class,
+		      struct lock_class_key *request_class)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	if (desc) {
+		lockdep_set_class(&desc->lock, lock_class);
+		lockdep_set_class(&desc->request_mutex, request_class);
+	}
 }
 
 #endif /* _LINUX_IRQDESC_H */

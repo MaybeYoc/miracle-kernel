@@ -72,6 +72,13 @@
  */
 extern u32 __boot_cpu_mode[2];
 
+/* Reports the availability of HYP mode */
+static inline bool is_hyp_mode_available(void)
+{
+	return (__boot_cpu_mode[0] == BOOT_CPU_MODE_EL2 &&
+		__boot_cpu_mode[1] == BOOT_CPU_MODE_EL2);
+}
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* ! __ASM__VIRT_H */

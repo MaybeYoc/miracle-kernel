@@ -12,8 +12,11 @@
 #ifndef _DEVICE_H_
 #define _DEVICE_H_
 
+#include <linux/of.h>
+
 struct device {
-	
+	struct device_node	*of_node; /* associated device tree node */
+	struct fwnode_handle	*fwnode; /* firmware device node */
 };
 
 #endif

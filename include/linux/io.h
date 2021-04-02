@@ -23,4 +23,6 @@
 #include <linux/err.h>
 #include <asm/io.h>
 
+#define IOMEM_ERR_PTR(err) (__force void __iomem *)ERR_PTR(err)
+
 #endif /* _LINUX_IO_H */

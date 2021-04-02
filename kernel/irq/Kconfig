@@ -1,4 +1,8 @@
 menu "IRQ subsystem"
 # Options selectable by the architecture code
 
+# Generic configurable interrupt chip implementation
+config GENERIC_IRQ_CHIP
+       bool
+
 endmenu

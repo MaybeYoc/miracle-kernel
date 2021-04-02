@@ -162,4 +162,91 @@ static inline void irq_state_set_masked(struct irq_desc *desc)
 
 #define IRQ_BITMAP_BITS	(NR_IRQS + 8196)
 
+extern struct irqaction chained_action;
+
+static inline void irq_mark_irq(unsigned int irq) { }
+
+/* Resending of interrupts :*/
+void check_irq_resend(struct irq_desc *desc);
+bool irq_wait_for_poll(struct irq_desc *desc);
+void __irq_wake_thread(struct irq_desc *desc, struct irqaction *action);
+
+#define IRQ_RESEND	true
+#define IRQ_NORESEND	false
+
+#define IRQ_START_FORCE	true
+#define IRQ_START_COND	false
+
+extern int irq_activate(struct irq_desc *desc);
+extern int irq_activate_and_startup(struct irq_desc *desc, bool resend);
+extern int irq_startup(struct irq_desc *desc, bool resend, bool force);
+
+extern void irq_shutdown(struct irq_desc *desc);
+extern void irq_enable(struct irq_desc *desc);
+extern void irq_disable(struct irq_desc *desc);
+extern void irq_percpu_enable(struct irq_desc *desc, unsigned int cpu);
+extern void irq_percpu_disable(struct irq_desc *desc, unsigned int cpu);
+extern void mask_irq(struct irq_desc *desc);
+extern void unmask_irq(struct irq_desc *desc);
+extern void unmask_threaded_irq(struct irq_desc *desc);
+
+extern int __irq_set_trigger(struct irq_desc *desc, unsigned long flags);
+extern void __disable_irq(struct irq_desc *desc);
+extern void __enable_irq(struct irq_desc *desc);
+
+extern int irq_do_set_affinity(struct irq_data *data,
+			       const struct cpumask *dest, bool force);
+
+extern bool noirqdebug;
+
+irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc, unsigned int *flags);
+irqreturn_t handle_irq_event_percpu(struct irq_desc *desc);
+irqreturn_t handle_irq_event(struct irq_desc *desc);
+
+/*
+ * Bits used by threaded handlers:
+ * IRQTF_RUNTHREAD - signals that the interrupt handler thread should run
+ * IRQTF_WARNED    - warning "IRQ_WAKE_THREAD w/o thread_fn" has been printed
+ * IRQTF_AFFINITY  - irq thread is requested to adjust affinity
+ * IRQTF_FORCED_THREAD  - irq action is force threaded
+ */
+enum {
+	IRQTF_RUNTHREAD,
+	IRQTF_WARNED,
+	IRQTF_AFFINITY,
+	IRQTF_FORCED_THREAD,
+};
+
+static inline bool irq_can_move_pcntxt(struct irq_data *data)
+{
+	return true;
+}
+
+static inline void irq_remove_timings(struct irq_desc *desc) {}
+static inline void irq_setup_timings(struct irq_desc *desc,
+				     struct irqaction *act) {};
+static inline void record_irq_time(struct irq_desc *desc) {}
+
+static inline void register_irq_proc(unsigned int irq, struct irq_desc *desc) { }
+static inline void unregister_irq_proc(unsigned int irq, struct irq_desc *desc) { }
+static inline void register_handler_proc(unsigned int irq,
+					 struct irqaction *action) { }
+static inline void unregister_handler_proc(unsigned int irq,
+					   struct irqaction *action) { }
+
+static inline bool irq_pm_check_wakeup(struct irq_desc *desc) { return false; }
+static inline void
+irq_pm_install_action(struct irq_desc *desc, struct irqaction *action) { }
+static inline void
+irq_pm_remove_action(struct irq_desc *desc, struct irqaction *action) { }
+
+static inline int irq_desc_get_node(struct irq_desc *desc)
+{
+	return irq_common_data_get_node(&desc->irq_common_data);
+}
+
+static inline void
+irq_copy_pending(struct irq_desc *desc, const struct cpumask *mask)
+{
+}
 #endif /* __KERNEL_IRQ_INTERNAL_H_ */

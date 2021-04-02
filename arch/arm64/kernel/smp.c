@@ -49,6 +49,13 @@ void __init smp_init_cpus(void)
 		set_cpu_possible(i, true);
 }
 
+void (*__smp_cross_call)(const struct cpumask *, unsigned int);
+
+void __init set_smp_cross_call(void (*fn)(const struct cpumask *, unsigned int))
+{
+	__smp_cross_call = fn;
+}
+
 /*
  * Main handler for inter-processor interrupts
  */

@@ -18,6 +18,8 @@
 
 #include <linux/const.h>
 
+#include <asm/smp_plat.h>
+
 /* Values for secondary_data.status */
 #define CPU_STUCK_REASON_SHIFT		(8)
 #define CPU_BOOT_STATUS_MASK		((UL(1) << CPU_STUCK_REASON_SHIFT) - 1)
@@ -104,6 +106,18 @@ extern void smp_init_cpus(void);
  * Called from C code, this handles an IPI.
  */
 extern void handle_IPI(int ipinr, struct pt_regs *regs);
+
+/*
+ * Provide a function to raise an IPI cross call on CPUs in callmap.
+ */
+extern void set_smp_cross_call(void (*)(const struct cpumask *, unsigned int));
+
+extern void (*__smp_cross_call)(const struct cpumask *, unsigned int);
+
+/*
+ * Called from the secondary holding pen, this is the secondary CPU entry point.
+ */
+asmlinkage void secondary_start_kernel(void);
 
 #endif /* ifndef __ASSEMBLY__ */
 

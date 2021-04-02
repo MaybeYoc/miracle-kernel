@@ -162,6 +162,17 @@ static inline bool page_is_pfmemalloc(struct page *page)
 	return page->index == -1UL;
 }
 
+extern int page_is_ram(unsigned long pfn);
+
+enum {
+	REGION_INTERSECTS,
+	REGION_DISJOINT,
+	REGION_MIXED,
+};
+
+int region_intersects(resource_size_t offset, size_t size, unsigned long flags,
+		      unsigned long desc);
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_MM_H */

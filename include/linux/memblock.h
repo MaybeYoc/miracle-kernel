@@ -7,6 +7,8 @@
 #include <linux/init.h>
 #include <linux/numa.h>
 
+#include <asm/memblock.h>
+
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
 
@@ -230,6 +232,9 @@ memblock_region_reserved_end_pfn(const struct memblock_region *reg)
 	for_each_mem_range_rev (i, &memblock.memory, &memblock.reserved, nid,  \
 				flags, p_start, p_end, p_nid)
 
+void __next_reserved_mem_region(u64 *idx, phys_addr_t *out_start,
+				phys_addr_t *out_end);
+
 /**
  * for_each_reserved_mem_region - iterate over all reserved memblock areas
  * @i: u64 used as loop variable
@@ -340,6 +345,12 @@ static inline void *__init memblock_alloc_nopanic(phys_addr_t size,
 					      NUMA_NO_NODE);
 }
 
+static inline void * __init memblock_alloc_low(phys_addr_t size,
+					       phys_addr_t align)
+{
+	return memblock_alloc_try_nid(size, align, MEMBLOCK_LOW_LIMIT,
+				      ARCH_LOW_ADDRESS_LIMIT, NUMA_NO_NODE);
+}
 static inline void *__init memblock_alloc_low_nopanic(phys_addr_t size,
 						      phys_addr_t align)
 {
