@@ -264,4 +264,13 @@ extern void free_percpu_irq(unsigned int, void __percpu *);
 				 IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)
 #define IRQF_TRIGGER_PROBE	0x00000010
 
+extern void disable_irq_nosync(unsigned int irq);
+extern bool disable_hardirq(unsigned int irq);
+extern void disable_irq(unsigned int irq);
+extern void disable_percpu_irq(unsigned int irq);
+extern void enable_irq(unsigned int irq);
+extern void enable_percpu_irq(unsigned int irq, unsigned int type);
+extern bool irq_percpu_is_enabled(unsigned int irq);
+extern void irq_wake_thread(unsigned int irq, void *dev_id);
+
 #endif
