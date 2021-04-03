@@ -1375,9 +1375,9 @@ int irq_chip_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 int irq_chip_pm_get(struct irq_data *data)
 {
 	/* TODO */
-	BUG_ON(1);
+	//BUG_ON(1);
 
-	return -1;
+	return 0;
 }
 
 /**
@@ -1390,8 +1390,10 @@ int irq_chip_pm_get(struct irq_data *data)
  */
 int irq_chip_pm_put(struct irq_data *data)
 {
-	/* TODO */
-	BUG_ON(1);
+	int retval = 0;
 
-	return -1;
+	/* TODO */
+	//BUG_ON(1)
+
+	return (retval < 0) ? retval : 0;
 }

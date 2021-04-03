@@ -8,5 +8,6 @@
 
 obj-y := test_driver.o
 obj-y				+= irqchip/
+obj-y				+= clocksource/
 obj-$(CONFIG_OF)		+= of/
 obj-y += tty/

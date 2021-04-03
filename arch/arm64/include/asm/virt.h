@@ -79,6 +79,11 @@ static inline bool is_hyp_mode_available(void)
 		__boot_cpu_mode[1] == BOOT_CPU_MODE_EL2);
 }
 
+static inline bool is_kernel_in_hyp_mode(void)
+{
+	return read_sysreg(CurrentEL) == CurrentEL_EL2;
+}
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* ! __ASM__VIRT_H */

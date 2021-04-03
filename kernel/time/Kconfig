@@ -1,0 +1,11 @@
+#
+# Timer subsystem related configuration options
+#
+
+menu "Timers subsystem"
+
+# Architecture has extra clocksource init called from registration
+config ARCH_CLOCKSOURCE_INIT
+	bool
+
+endmenu

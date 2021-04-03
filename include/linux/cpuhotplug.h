@@ -204,4 +204,22 @@ static inline int cpuhp_setup_state_nocalls(enum cpuhp_state state,
 				   false);
 }
 
+/**
+ * cpuhp_setup_state - Setup hotplug state callbacks with calling the callbacks
+ * @state:	The state for which the calls are installed
+ * @name:	Name of the callback (will be used in debug output)
+ * @startup:	startup callback function
+ * @teardown:	teardown callback function
+ *
+ * Installs the callback functions and invokes the startup callback on
+ * the present cpus which have already reached the @state.
+ */
+static inline int cpuhp_setup_state(enum cpuhp_state state,
+				    const char *name,
+				    int (*startup)(unsigned int cpu),
+				    int (*teardown)(unsigned int cpu))
+{
+	return __cpuhp_setup_state(state, name, true, startup, teardown, false);
+}
+
 #endif

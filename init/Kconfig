@@ -192,6 +192,7 @@ config DEFAULT_HOSTNAME
 	  system more usable with less configuration.
 
 source "kernel/irq/Kconfig"
+source "kernel/time/Kconfig"
 
 config PRINTK
 	default y

@@ -96,4 +96,9 @@ static inline pid_t task_pid_nr(struct task_struct *tsk)
 #define PF_FREEZER_SKIP		0x40000000	/* Freezer should not count it as freezable */
 #define PF_SUSPEND_TASK		0x80000000      /* This thread called freeze_processes() and should not be frozen */
 
+static inline void sched_clock_register(u64 (*read)(void), int bits,
+					unsigned long rate)
+{
+}
+
 #endif

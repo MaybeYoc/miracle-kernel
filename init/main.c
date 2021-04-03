@@ -35,6 +35,8 @@ enum system_states system_state __read_mostly;
 /* Untouched command line saved by arch-specific code. */
 char __initdata boot_command_line[COMMAND_LINE_SIZE];
 
+extern void time_init(void);
+
 extern const struct obs_kernel_param __setup_start[], __setup_end[];
 
 /*
@@ -136,6 +138,8 @@ asmlinkage __visible void __init start_kernel(void)
 	/* init some links before init_ISA_irqs() */
 	early_irq_init();
 	init_IRQ();
+
+	time_init();
 
 	local_irq_enable();
 

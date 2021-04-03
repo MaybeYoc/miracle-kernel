@@ -1,0 +1,35 @@
+menu "Clock Source drivers"
+
+config TIMER_OF
+	bool
+	select TIMER_PROBE
+
+config TIMER_PROBE
+	bool
+
+config ARM_ARCH_TIMER
+	bool
+	select TIMER_OF if OF
+
+config ARM_ARCH_TIMER_EVTSTREAM
+	bool "Enable ARM architected timer event stream generation by default"
+	default y if ARM_ARCH_TIMER
+	depends on ARM_ARCH_TIMER
+	help
+	  This option enables support by default for event stream generation
+	  based on the ARM architected timer. It is used for waking up CPUs
+	  executing the wfe instruction at a frequency represented as a
+	  power-of-2 divisor of the clock rate. The behaviour can also be
+	  overridden on the command line using the
+	  clocksource.arm_arch_timer.evtstream parameter.
+	  The main use of the event stream is wfe-based timeouts of userspace
+	  locking implementations. It might also be useful for imposing timeout
+	  on wfe to safeguard against any programming errors in case an expected
+	  event is not generated.
+	  This must be disabled for hardware validation purposes to detect any
+	  hardware anomalies of missing events.
+
+config ARM_ARCH_TIMER_OOL_WORKAROUND
+	bool
+
+endmenu

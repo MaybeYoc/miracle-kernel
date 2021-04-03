@@ -5,6 +5,7 @@
 obj-y := panic.o exit.o params.o cpu.o resource.o
 obj-y += sched/
 obj-y += locking/
+obj-y += time/
 obj-y += printk/
 obj-y += irq/
 obj-$(CONFIG_SMP) += smp.o
