@@ -67,8 +67,6 @@ static inline void remove_wait_queue(struct wait_queue_head *wq_head, struct wai
 
 }
 
-#define set_current_state(state_value)
-
 static inline void schedule(void)
 {
 

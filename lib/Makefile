@@ -13,7 +13,7 @@ obj-$(CONFIG_GENERIC_HWEIGHT) += hweight.o
 obj-$(CONFIG_CRC32)	+= crc32.o
 
 lib-y := ctype.o string.o vsprintf.o int_sqrt.o cmdline.o	\
-		rbtree.o radix-tree.o xarray.o idr.o irq_regs.o
+		rbtree.o radix-tree.o xarray.o idr.o irq_regs.o plist.o
 
 lib-$(CONFIG_SMP) += cpumask.o
 

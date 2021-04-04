@@ -19,6 +19,7 @@
 #include <linux/resource_ext.h>
 #include <linux/seq_file.h>
 #include <linux/wait.h>
+#include <linux/sched.h>
 
 #include <asm/memory.h>
 

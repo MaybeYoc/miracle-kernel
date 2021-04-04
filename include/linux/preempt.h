@@ -9,6 +9,8 @@
 #include <linux/linkage.h>
 #include <linux/list.h>
 
+#define PREEMPT_DISABLED	(1 + PREEMPT_ENABLED)
+
 /*
  * We use the MSB mostly because its available; see <linux/preempt_mask.h> for
  * the other bits -- can't include that header due to inclusion hell.
