@@ -11,6 +11,8 @@
 #include <linux/plist.h>
 #include <linux/types.h>
 //#include <linux/pid.h>
+#include <linux/sched/loadavg.h>
+#include <linux/sched/cpufreq.h>
 #include <uapi/linux/sched.h>
 
 #include <asm/current.h>

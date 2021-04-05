@@ -19,6 +19,8 @@
 OUTPUT_ARCH(aarch64)
 ENTRY(_text)
 
+jiffies = jiffies_64;
+
 #define IDMAP_TEXT					\
 	. = ALIGN(SZ_4K);				\
 	__idmap_text_start = .;				\
