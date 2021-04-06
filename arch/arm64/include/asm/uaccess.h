@@ -18,9 +18,6 @@
 #ifndef __ASM_UACCESS_H
 #define __ASM_UACCESS_H
 
-#define VERIFY_READ 0
-#define VERIFY_WRITE 1
-
 #define KERNEL_DS	(-1UL)
 #define get_ds()	(KERNEL_DS)
 
@@ -81,7 +78,7 @@ static inline void set_fs(mm_segment_t fs)
 	flag;								\
 })
 
-#define access_ok(type, addr, size)	__range_ok(addr, size)
+#define access_ok(addr, size)	__range_ok(addr, size)
 #define user_addr_max			get_fs
 
 /*
@@ -151,7 +148,7 @@ do {									\
 ({									\
 	__typeof__(*(ptr)) __user *__p = (ptr);				\
 	might_fault();							\
-	access_ok(VERIFY_READ, __p, sizeof(*__p)) ?			\
+	access_ok(__p, sizeof(*__p)) ?			\
 		__get_user((x), __p) :					\
 		((x) = 0, -EFAULT);					\
 })
@@ -213,7 +210,7 @@ do {									\
 ({									\
 	__typeof__(*(ptr)) __user *__p = (ptr);				\
 	might_fault();							\
-	access_ok(VERIFY_WRITE, __p, sizeof(*__p)) ?			\
+	access_ok(__p, sizeof(*__p)) ?			\
 		__put_user((x), __p) :					\
 		-EFAULT;						\
 })
@@ -225,7 +222,7 @@ extern unsigned long __must_check __clear_user(void __user *addr, unsigned long 
 
 static inline unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	if (access_ok(VERIFY_READ, from, n))
+	if (access_ok(from, n))
 		n = __copy_from_user(to, from, n);
 	else /* security hole - plug it */
 		memset(to, 0, n);
@@ -234,14 +231,14 @@ static inline unsigned long __must_check copy_from_user(void *to, const void __u
 
 static inline unsigned long __must_check copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	if (access_ok(VERIFY_WRITE, to, n))
+	if (access_ok(to, n))
 		n = __copy_to_user(to, from, n);
 	return n;
 }
 
 static inline unsigned long __must_check copy_in_user(void __user *to, const void __user *from, unsigned long n)
 {
-	if (access_ok(VERIFY_READ, from, n) && access_ok(VERIFY_WRITE, to, n))
+	if (access_ok(from, n) && access_ok(to, n))
 		n = __copy_in_user(to, from, n);
 	return n;
 }
@@ -251,7 +248,7 @@ static inline unsigned long __must_check copy_in_user(void __user *to, const voi
 
 static inline unsigned long __must_check clear_user(void __user *to, unsigned long n)
 {
-	if (access_ok(VERIFY_WRITE, to, n))
+	if (access_ok(to, n))
 		n = __clear_user(to, n);
 	return n;
 }

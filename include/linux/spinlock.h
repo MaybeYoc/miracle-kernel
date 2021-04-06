@@ -57,22 +57,6 @@
 
 #include <asm/barrier.h>
 
-
-/*
- * Must define these before including other files, inline functions need them
- */
-#define LOCK_SECTION_NAME ".text..lock."KBUILD_BASENAME
-
-#define LOCK_SECTION_START(extra)               \
-        ".subsection 1\n\t"                     \
-        extra                                   \
-        ".ifndef " LOCK_SECTION_NAME "\n\t"     \
-        LOCK_SECTION_NAME ":\n\t"               \
-        ".endif\n"
-
-#define LOCK_SECTION_END                        \
-        ".previous\n\t"
-
 #define __lockfunc __attribute__((section(".spinlock.text")))
 
 /*
@@ -123,17 +107,15 @@
 #define smp_mb__after_unlock_lock()	do { } while (0)
 #endif
 
-/**
- * raw_spin_unlock_wait - wait until the spinlock gets unlocked
- * @lock: the spinlock in question.
- */
-#define raw_spin_unlock_wait(lock)	arch_spin_unlock_wait(&(lock)->raw_lock)
-
 static inline void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock)
 {
 	__acquire(lock);
 	arch_spin_lock(&lock->raw_lock);
 }
+
+#ifndef arch_spin_lock_flags
+#define arch_spin_lock_flags(lock, flags)	arch_spin_lock(lock)
+#endif
 
 static inline void
 do_raw_spin_lock_flags(raw_spinlock_t *lock, unsigned long *flags) __acquires(lock)
@@ -223,12 +205,6 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 	1 : ({ local_irq_restore(flags); 0; }); \
 })
 
-/**
- * raw_spin_can_lock - would raw_spin_trylock() succeed?
- * @lock: the spinlock in question.
- */
-#define raw_spin_can_lock(lock)	(!raw_spin_is_locked(lock))
-
 /* Include rwlock functions */
 #include <linux/rwlock.h>
 
@@ -316,11 +292,6 @@ static inline int spin_trylock_irq(spinlock_t *lock)
 	raw_spin_trylock_irqsave(spinlock_check(lock), flags); \
 })
 
-static inline void spin_unlock_wait(spinlock_t *lock)
-{
-	raw_spin_unlock_wait(&lock->rlock);
-}
-
 static inline int spin_is_locked(spinlock_t *lock)
 {
 	return raw_spin_is_locked(&lock->rlock);
@@ -329,11 +300,6 @@ static inline int spin_is_locked(spinlock_t *lock)
 static inline int spin_is_contended(spinlock_t *lock)
 {
 	return raw_spin_is_contended(&lock->rlock);
-}
-
-static inline int spin_can_lock(spinlock_t *lock)
-{
-	return raw_spin_can_lock(&lock->rlock);
 }
 
 #define assert_spin_locked(lock)	assert_raw_spin_locked(&(lock)->rlock)

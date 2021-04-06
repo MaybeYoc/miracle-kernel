@@ -12,7 +12,7 @@
 #include <linux/mm.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/prefectch.h>
+#include <linux/prefetch.h>
 #include <linux/bit_spinlock.h>
 #include <linux/percpu.h>
 

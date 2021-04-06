@@ -143,3 +143,17 @@ config INLINE_WRITE_UNLOCK_IRQRESTORE
 config INLINE_WRITE_UNLOCK_IRQ
 	def_bool y
 	depends on ARCH_INLINE_WRITE_UNLOCK_IRQ
+
+config ARCH_USE_QUEUED_SPINLOCKS
+	bool
+
+config QUEUED_SPINLOCKS
+	def_bool y if ARCH_USE_QUEUED_SPINLOCKS
+	depends on SMP
+
+config ARCH_USE_QUEUED_RWLOCKS
+	bool
+
+config QUEUED_RWLOCKS
+	def_bool y if ARCH_USE_QUEUED_RWLOCKS
+	depends on SMP
