@@ -8,11 +8,14 @@ struct path {
 	struct dentry *dentry;
 };
 
+#define O_SYNC 1 /* TODO */
+
 struct file {
 	union {
 		struct llist_node	fu_llist;
 	} f_u;
 	struct path		f_path;
+	unsigned int 		f_flags;
 };
 
 struct address_space {

@@ -33,14 +33,13 @@
 
 static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
 {
-	//return (pmd_t *)__get_free_page(PGALLOC_GFP); /* TODO */
-	return NULL; // Temp
+	return (pmd_t *)__get_free_page(PGALLOC_GFP);
 }
 
 static inline void pmd_free(struct mm_struct *mm, pmd_t *pmdp)
 {
 	BUG_ON((unsigned long)pmdp & (PAGE_SIZE-1));
-	// free_page((unsigned long)pmdp);  /* TODO */
+	free_page((unsigned long)pmdp);
 }
 
 static inline void __pud_populate(pud_t *pudp, phys_addr_t pmdp, pudval_t prot)
@@ -63,14 +62,13 @@ static inline void __pud_populate(pud_t *pudp, phys_addr_t pmdp, pudval_t prot)
 
 static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
 {
-	//return (pud_t *)__get_free_page(PGALLOC_GFP); /* TODO */
-	return NULL; // Temp
+	return (pud_t *)__get_free_page(PGALLOC_GFP);
 }
 
 static inline void pud_free(struct mm_struct *mm, pud_t *pudp)
 {
 	BUG_ON((unsigned long)pudp & (PAGE_SIZE-1));
-	//free_page((unsigned long)pudp); /* TODO */
+	free_page((unsigned long)pudp);
 }
 
 static inline void __pgd_populate(pgd_t *pgdp, phys_addr_t pudp, pgdval_t prot)
@@ -95,14 +93,12 @@ extern void pgd_free(struct mm_struct *mm, pgd_t *pgdp); /* TODO */
 static inline pte_t *
 pte_alloc_one_kernel(struct mm_struct *mm)
 {
-	//return (pte_t *)__get_free_page(PGALLOC_GFP); /* TODO */
-	return NULL; // Temp
+	return (pte_t *)__get_free_page(PGALLOC_GFP);
 }
 
 static inline pgtable_t
 pte_alloc_one(struct mm_struct *mm)
 {
-#if 0
 	struct page *pte;
 
 	pte = alloc_pages(PGALLOC_GFP, 0);
@@ -113,8 +109,6 @@ pte_alloc_one(struct mm_struct *mm)
 		return NULL;
 	}
 	return pte;
-#endif /* TODO */
-	return 0;
 }
 
 /*
@@ -122,18 +116,14 @@ pte_alloc_one(struct mm_struct *mm)
  */
 static inline void pte_free_kernel(struct mm_struct *mm, pte_t *ptep)
 {
-#if 0
 	if (ptep)
 		free_page((unsigned long)ptep);
-#endif /* TODO */
 }
 
 static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
 {
-#if 0
 	pgtable_page_dtor(pte);
 	__free_page(pte);
-#endif /* TODO */
 }
 
 static inline void __pmd_populate(pmd_t *pmdp, phys_addr_t ptep,

@@ -173,6 +173,21 @@ enum {
 int region_intersects(resource_size_t offset, size_t size, unsigned long flags,
 		      unsigned long desc);
 
+static inline bool pgtable_page_ctor(struct page *page)
+{
+	__SetPageTable(page);
+	return true;
+}
+
+static inline void pgtable_page_dtor(struct page *page)
+{
+	__ClearPageTable(page);
+}
+
+static inline bool debug_pagealloc_enabled(void)
+{
+	return false;
+}
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_MM_H */

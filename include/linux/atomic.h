@@ -3,6 +3,27 @@
 #define _LINUX_ATOMIC_H
 #include <asm/atomic.h>
 
+/* cmpxchg_relaxed */
+#ifndef cmpxchg_relaxed
+#define  cmpxchg_relaxed		cmpxchg
+#define  cmpxchg_acquire		cmpxchg
+#define  cmpxchg_release		cmpxchg
+#endif
+
+/* cmpxchg64_relaxed */
+#ifndef cmpxchg64_relaxed
+#define  cmpxchg64_relaxed		cmpxchg64
+#define  cmpxchg64_acquire		cmpxchg64
+#define  cmpxchg64_release		cmpxchg64
+#endif
+
+/* xchg_relaxed */
+#ifndef xchg_relaxed
+#define  xchg_relaxed			xchg
+#define  xchg_acquire			xchg
+#define  xchg_release			xchg
+#endif
+
 #ifndef atomic_read_acquire
 #define  atomic_read_acquire(v)		smp_load_acquire(&(v)->counter)
 #endif
