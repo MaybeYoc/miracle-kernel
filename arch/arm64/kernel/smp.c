@@ -27,6 +27,12 @@
 DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
 struct secondary_data secondary_data;
 
+/* Setup number of possible processor ids */
+unsigned int nr_possible_cpu_ids __read_mostly = NR_CPUS;
+unsigned int nr_online_cpu_ids;
+unsigned int nr_present_cpu_ids;
+unsigned int nr_active_cpu_ids;
+
 /*
  * This is the secondary CPU boot entry.  We're using this CPUs
  * idle thread stack, but a set of temporary page tables.

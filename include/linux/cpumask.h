@@ -214,27 +214,27 @@ extern unsigned int nr_online_cpu_ids;
 extern unsigned int nr_present_cpu_ids;
 extern unsigned int nr_active_cpu_ids;
 
-static inline void cpu_set_possible(int node)
+static inline void cpu_set_possible(int cpu)
 {
-	cpumask_set_cpu(node, cpu_possible_mask);
+	cpumask_set_cpu(cpu, cpu_possible_mask);
 	nr_possible_cpu_ids = cpumask_weight(cpu_possible_mask);
 }
 
-static inline void cpu_set_online(int node)
+static inline void cpu_set_online(int cpu)
 {
-	cpumask_set_cpu(node, cpu_online_mask);
+	cpumask_set_cpu(cpu, cpu_online_mask);
 	nr_online_cpu_ids = cpumask_weight(cpu_online_mask);
 }
 
-static inline void cpu_set_present(int node)
+static inline void cpu_set_present(int cpu)
 {
-	cpumask_set_cpu(node, cpu_present_mask);
+	cpumask_set_cpu(cpu, cpu_present_mask);
 	nr_present_cpu_ids = cpumask_weight(cpu_present_mask);
 }
 
-static inline void cpu_set_active(int node)
+static inline void cpu_set_active(int cpu)
 {
-	cpumask_set_cpu(node, cpu_active_mask);
+	cpumask_set_cpu(cpu, cpu_active_mask);
 	nr_active_cpu_ids = cpumask_weight(cpu_active_mask);
 }
 
@@ -252,10 +252,10 @@ static inline void cpu_set_active(int node)
 #define nr_present_cpu_ids		1U
 #define nr_active_cpu_ids		1U
 
-static inline void cpu_set_possible(int node) {}
-static inline void cpu_set_online(int node) {}
-static inline void cpu_set_present(int node) {}
-static inline void cpu_set_active(int node) {}
+static inline void cpu_set_possible(int cpu) {}
+static inline void cpu_set_online(int cpu) {}
+static inline void cpu_set_present(int cpu) {}
+static inline void cpu_set_active(int cpu) {}
 
 #define num_online_cpus()	1U
 #define num_possible_cpus()	1U
