@@ -72,7 +72,7 @@ static bool arch_timer_mem_use_virtual;
 static bool arch_counter_suspend_stop;
 static bool vdso_default = true;
 
-static cpumask_t evtstrm_available = CPU_MASK_NONE;
+static cpumask_t evtstrm_available;
 static bool evtstrm_enable = IS_ENABLED(CONFIG_ARM_ARCH_TIMER_EVTSTREAM);
 
 /*
@@ -324,7 +324,7 @@ static void __arch_timer_setup(unsigned type,
 			clk->features |= CLOCK_EVT_FEAT_C3STOP;
 		clk->name = "arch_sys_timer";
 		clk->rating = 450;
-		clk->cpumask = cpumask_of(smp_processor_id());
+		//clk->cpumask = cpumask_of(smp_processor_id());
 		clk->irq = arch_timer_ppi[arch_timer_uses_ppi];
 		switch (arch_timer_uses_ppi) {
 		case ARCH_TIMER_VIRT_PPI:
@@ -512,7 +512,7 @@ bool arch_timer_evtstrm_available(void)
 	 * because availability of the event stream should be always the same
 	 * for a preemptible context and context where we might resume a task.
 	 */
-	return cpumask_test_cpu(raw_smp_processor_id(), &evtstrm_available);
+	return cpumask_is_set(raw_smp_processor_id(), &evtstrm_available);
 }
 
 static u64 arch_counter_get_cntvct_mem(void)

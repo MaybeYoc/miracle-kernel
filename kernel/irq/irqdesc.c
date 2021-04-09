@@ -28,7 +28,6 @@ static struct lock_class_key irq_desc_lock_class;
 #if defined(CONFIG_SMP)
 static int __init irq_affinity_setup(char *str)
 {
-	alloc_bootmem_cpumask_var(&irq_default_affinity);
 	cpulist_parse(str, irq_default_affinity);
 	/*
 	 * Set at least the boot cpu. We don't want to end up with
@@ -41,10 +40,10 @@ __setup("irqaffinity=", irq_affinity_setup);
 
 static void __init init_irq_default_affinity(void)
 {
-	if (!cpumask_available(irq_default_affinity))
-		zalloc_cpumask_var(&irq_default_affinity, GFP_KERNEL);
+//	if (!cpumask_available(irq_default_affinity))
+		//zalloc_cpumask_var(&irq_default_affinity, GFP_KERNEL);
 	if (cpumask_empty(irq_default_affinity))
-		cpumask_setall(irq_default_affinity);
+		cpumask_setall_cpu(irq_default_affinity);
 }
 #else
 static void __init init_irq_default_affinity(void)
@@ -55,15 +54,15 @@ static void __init init_irq_default_affinity(void)
 #ifdef CONFIG_SMP
 static int alloc_masks(struct irq_desc *desc, int node)
 {
-	if (!zalloc_cpumask_var_node(&desc->irq_common_data.affinity,
-				     GFP_KERNEL, node))
-		return -ENOMEM;
+	//if (!zalloc_cpumask_var_node(&desc->irq_common_data.affinity,
+	//			     GFP_KERNEL, node))
+	//	return -ENOMEM;
 
-	if (!zalloc_cpumask_var_node(&desc->irq_common_data.effective_affinity,
-				     GFP_KERNEL, node)) {
-		free_cpumask_var(desc->irq_common_data.affinity);
-		return -ENOMEM;
-	}
+	//if (!zalloc_cpumask_var_node(&desc->irq_common_data.effective_affinity,
+	//			     GFP_KERNEL, node)) {
+		//free_cpumask_var(desc->irq_common_data.affinity);
+	//	return -ENOMEM;
+	//}
 
 	return 0;
 }
@@ -135,8 +134,8 @@ static void delete_irq_desc(unsigned int irq)
 #ifdef CONFIG_SMP
 static void free_masks(struct irq_desc *desc)
 {
-	free_cpumask_var(desc->irq_common_data.affinity);
-	free_cpumask_var(desc->irq_common_data.effective_affinity);
+	//free_cpumask_var(desc->irq_common_data.affinity);
+	//free_cpumask_var(desc->irq_common_data.effective_affinity);
 }
 #else
 static inline void free_masks(struct irq_desc *desc) { }
@@ -161,7 +160,7 @@ static struct irq_desc *alloc_desc(int irq, int node, unsigned int flags,
 	desc = kzalloc_node(sizeof(*desc), GFP_KERNEL, node);
 	if (!desc)
 		return NULL;
-	/* allocate based on nr_cpu_ids */
+	/* allocate based on nr_possible_cpu_ids */
 	desc->kstat_irqs = alloc_percpu(unsigned int);
 	if (!desc->kstat_irqs)
 		goto err_desc;

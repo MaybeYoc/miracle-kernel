@@ -46,7 +46,7 @@ void __init smp_init_cpus(void)
 	int i;
 
 	for (i = 0; i < 8; i++)
-		set_cpu_possible(i, true);
+		cpu_set_possible(i);
 }
 
 void (*__smp_cross_call)(const struct cpumask *, unsigned int);

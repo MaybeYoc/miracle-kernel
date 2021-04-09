@@ -10,7 +10,7 @@
 
 #include <asm/memory.h>
 
-cpumask_var_t node_to_cpumask_map[MAX_NUMNODES];
+cpumask_t * node_to_cpumask_map[MAX_NUMNODES];
 
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
 nodemask_t numa_nodes_parsed __initdata;
@@ -52,7 +52,7 @@ static int __init numa_register_nodes(void)
 		}
 
 	/* Finally register nodes. */
-	for_each_node_mask(nid, numa_nodes_parsed) {
+	for_each_node_mask(nid, &numa_nodes_parsed) {
 		unsigned long start_pfn, end_pfn;
 
 		get_pfn_range_for_nid(nid, &start_pfn, &end_pfn);
@@ -66,7 +66,7 @@ static int __init numa_register_nodes(void)
 	}
 
 	/* Setup online nodes to actual nodes*/
-	node_possible_map = numa_nodes_parsed;
+	__node_possible_mask = numa_nodes_parsed;
 
 	return 0;
 }
@@ -75,9 +75,9 @@ static int __init numa_init(int (*init_func)(void))
 {
 	int ret;
 
-	nodes_clear(numa_nodes_parsed);
-	nodes_clear(node_possible_map);
-	nodes_clear(node_online_map);
+	//nodes_clear(numa_nodes_parsed);
+	//nodes_clear(node_possible_map);
+	//nodes_clear(node_online_map);
 
 	ret = init_func();
 	if (ret < 0)
@@ -90,7 +90,6 @@ static int __init numa_init(int (*init_func)(void))
 	return 0;
 }
 
-#ifndef CONFIG_NUMA
 /**
  * numa_add_memblk - Set node id to memblk
  * @nid: NUMA node ID of the new memblk
@@ -111,7 +110,7 @@ int __init numa_add_memblk(int nid, u64 start, u64 end)
 		return ret;
 	}
 
-	node_set(nid, numa_nodes_parsed);
+	nodemask_set_node(nid, &numa_nodes_parsed);
 	return ret;
 }
 
@@ -144,7 +143,6 @@ static int __init dummy_numa_init(void)
 
 	return 0;
 }
-#endif
 
 /**
  * arm64_numa_init - Initialize NUMA
@@ -154,9 +152,5 @@ static int __init dummy_numa_init(void)
  */
 void __init arm64_numa_init(void)
 {
-#ifdef CONFIG_NUMA
-#error "Error: Not support NUMA Now"
-#else
 	numa_init(dummy_numa_init);
-#endif
 }

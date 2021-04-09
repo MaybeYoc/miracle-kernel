@@ -61,7 +61,6 @@
 
 #ifdef CONFIG_SMP
 
-#ifndef	CONFIG_HAVE_SETUP_PER_CPU_AREA
 /*
  * Generic SMP percpu area setup.
  *
@@ -186,8 +185,6 @@ void __init setup_per_cpu_areas(void)
 		(static_offsets + dy_offsets) * NR_CPUS/PAGE_SIZE + 1, static_offsets, re,
 		dy_offsets * NR_CPUS, static_offsets + dy_offsets);
 }
-
-#endif	/* CONFIG_HAVE_SETUP_PER_CPU_AREA */
 
 #else
 

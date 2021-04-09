@@ -598,10 +598,6 @@ static void *get_partial_node(struct kmem_cache *s, struct kmem_cache_node *n,
 static void *get_any_partial(struct kmem_cache *s, gfp_t flags,
 		struct kmem_cache_cpu *c)
 {
-#ifdef CONFIG_NUMA
-	/* TODO  */
-#error "Not support NUMA Now!"
-#endif
 	return NULL;
 }
 
@@ -1648,7 +1644,7 @@ static inline int calculate_order(unsigned int size)
 	 */
 	min_objects = slub_min_objects;
 	if (!min_objects)
-		min_objects = 4 * (fls(nr_cpu_ids) + 1);
+		min_objects = 4 * (fls(nr_possible_cpu_ids) + 1);
 		;
 	max_objects = order_objects(slub_max_order, size);
 	min_objects = min(min_objects, max_objects);
@@ -1777,7 +1773,7 @@ static int init_kmem_cache_nodes(struct kmem_cache *s)
 {
 	int node;
 
-	for_each_node_state(node, N_NORMAL_MEMORY) {
+	for_each_online_node(node) {
 		struct kmem_cache_node *n;
 
 		if (slab_state == DOWN) {
@@ -2201,7 +2197,7 @@ void __init kmem_cache_init(void)
 
 	create_boot_cache(kmem_cache, "kmem_cache",
 			offsetof(struct kmem_cache, node) +
-				nr_node_ids * sizeof(struct kmem_cache_node *),
+				nr_possible_cpu_ids * sizeof(struct kmem_cache_node *),
 		       SLAB_HWCACHE_ALIGN, 0, 0);
 
 	kmem_cache = bootstrap(&boot_kmem_cache);
@@ -2217,7 +2213,7 @@ void __init kmem_cache_init(void)
 	pr_info("SLUB: HWalign=%d, Order=%u-%u, MinObjects=%u, CPUs=%u, Nodes=%d\n",
 		cache_line_size(),
 		slub_min_order, slub_max_order, slub_min_objects,
-		nr_cpu_ids, nr_node_ids);
+		nr_possible_cpu_ids, nr_possible_nodes);
 }
 
 struct kmem_cache *

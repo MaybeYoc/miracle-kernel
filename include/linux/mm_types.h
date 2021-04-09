@@ -94,7 +94,7 @@ struct mm_struct {
 
 	/*
 	 * The mm_cpumask needs to be at the end of mm_struct, because it
-	 * is dynamically sized based on nr_cpu_ids.
+	 * is dynamically sized based on nr_possible_cpu_ids.
 	 */
 	unsigned long cpu_bitmap[];
 };

@@ -351,8 +351,8 @@ struct dl_rq {
 struct root_domain {
 	atomic_t		refcount;
 	atomic_t		rto_count;
-	cpumask_var_t		span;
-	cpumask_var_t		online;
+	cpumask_t *		span;
+	cpumask_t *		online;
 
 	/*
 	 * Indicate pullable load on at least one CPU, e.g:
@@ -368,7 +368,7 @@ struct root_domain {
 	 * The bit corresponding to a CPU gets set here if such CPU has more
 	 * than one runnable -deadline task (as it is below for RT tasks).
 	 */
-	cpumask_var_t		dlo_mask;
+	cpumask_t *		dlo_mask;
 	atomic_t		dlo_count;
 	struct dl_bw		dl_bw;
 	//struct cpudl		cpudl;
@@ -377,7 +377,7 @@ struct root_domain {
 	 * The "RT overload" flag: it gets set if a CPU has more than
 	 * one runnable RT task.
 	 */
-	cpumask_var_t		rto_mask;
+	cpumask_t *		rto_mask;
 	//struct cpupri		cpupri;
 
 	unsigned long		max_cpu_capacity;

@@ -32,7 +32,7 @@ static void __init of_numa_parse_cpu_nodes(void)
 		if (nid >= MAX_NUMNODES)
 			pr_warn("Node id %u exceeds maximum value\n", nid);
 		else
-			node_set(nid, numa_nodes_parsed);
+			nodemask_set_node(nid, &numa_nodes_parsed);
 	}
 }
 

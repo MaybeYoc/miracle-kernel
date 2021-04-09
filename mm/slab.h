@@ -105,7 +105,7 @@ void create_kmalloc_caches(slab_flags_t);
  * a kmem_cache_node structure allocated (which is true for all online nodes)
  */
 #define for_each_kmem_cache_node(__s, __node, __n) \
-	for (__node = 0; __node < nr_node_ids; __node++) \
+	for (__node = 0; __node < nr_possible_nodes; __node++) \
 		 if ((__n = get_node(__s, __node)))
 
 static inline void slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags,

@@ -193,7 +193,7 @@ __irq_startup_managed(struct irq_desc *desc, struct cpumask *aff, bool force)
 
 	irqd_clr_managed_shutdown(d);
 
-	if (cpumask_any_and(aff, cpu_online_mask) >= nr_cpu_ids) {
+	if (1) {
 		/*
 		 * Catch code which fiddles with enable_irq() on a managed
 		 * and potentially shutdown IRQ. Chained interrupt
@@ -875,7 +875,7 @@ void handle_percpu_devid_irq(struct irq_desc *desc)
 		res = action->handler(irq, raw_cpu_ptr(action->percpu_dev_id));
 	} else {
 		unsigned int cpu = smp_processor_id();
-		bool enabled = cpumask_test_cpu(cpu, desc->percpu_enabled);
+		bool enabled = cpumask_is_set(cpu, desc->percpu_enabled);
 
 		if (enabled)
 			irq_percpu_disable(desc, cpu);

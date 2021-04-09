@@ -13,12 +13,12 @@
 #include <asm/barrier.h>
 
 /* Setup number of possible processor ids */
-unsigned int nr_cpu_ids __read_mostly = NR_CPUS;
+unsigned int nr_possible_cpu_ids __read_mostly = NR_CPUS;
 
-/* An arch may set nr_cpu_ids earlier if needed, so this would be redundant */
+/* An arch may set nr_possible_cpu_ids earlier if needed, so this would be redundant */
 void __init setup_nr_cpu_ids(void)
 {
-	nr_cpu_ids = find_last_bit(cpumask_bits(cpu_possible_mask),NR_CPUS) + 1;
+	nr_possible_cpu_ids = find_last_bit(cpumask_bits(cpu_possible_mask),NR_CPUS) + 1;
 }
 
 /**

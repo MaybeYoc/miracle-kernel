@@ -24,6 +24,9 @@
 
 #include "internal.h"
 
+nodemask_t __node_possible_mask;
+nodemask_t __node_online_mask;
+
 static unsigned long arch_zone_lowest_possible_pfn[MAX_NR_ZONES] __initdata;
 static unsigned long arch_zone_highest_possible_pfn[MAX_NR_ZONES] __initdata;
 static unsigned long zone_movable_pfn[MAX_NUMNODES] __initdata;
@@ -34,22 +37,9 @@ static DEFINE_PER_CPU(struct per_cpu_nodestat, boot_nodestats);
 atomic_long_t _totalram_pages __read_mostly;
 
 #if MAX_NUMNODES > 1
-int nr_node_ids __read_mostly = MAX_NUMNODES;
+int nr_possible_nodes __read_mostly = MAX_NUMNODES;
 int nr_online_nodes __read_mostly = 1;
 #endif
-
-/*
- * Array of node states.
- */
-nodemask_t node_states[NR_NODE_STATES] __read_mostly = {
-	[N_POSSIBLE] = NODE_MASK_ALL,
-	[N_ONLINE] = { { [0] = 1UL } },
-#ifndef CONFIG_NUMA
-	[N_NORMAL_MEMORY] = { { [0] = 1UL } },
-	[N_MEMORY] = { { [0] = 1UL } },
-	[N_CPU] = { { [0] = 1UL } },
-#endif	/* NUMA */
-};
 
 static char * const zone_names[MAX_NR_ZONES] = {
 #ifdef CONFIG_ZONE_DMA
@@ -1610,8 +1600,8 @@ void __init setup_nr_node_ids(void)
 {
 	unsigned int highest;
 
-	highest = find_last_bit(node_possible_map.bits, MAX_NUMNODES);
-	nr_node_ids = highest + 1;
+	highest = find_last_bit(__node_possible_mask.bits, MAX_NUMNODES);
+	nr_possible_nodes = highest + 1;
 }
 #endif
 
@@ -2294,8 +2284,8 @@ void __init free_area_init_nodes(unsigned long *max_zone_pfn)
 				find_min_pfn_for_node(nid), NULL);
 
 		/* Any memory on that node */
-		if (pgdat->node_present_pages)
-			node_set_state(nid, N_MEMORY);
+		//if (pgdat->node_present_pages)
+		//	node_set_state(nid, N_MEMORY);
 
 		check_for_memory(pgdat, nid);
 	}

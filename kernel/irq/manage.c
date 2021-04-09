@@ -98,7 +98,7 @@ void synchronize_irq(unsigned int irq)
 }
 
 #ifdef CONFIG_SMP
-cpumask_var_t irq_default_affinity;
+cpumask_t * irq_default_affinity;
 
 static bool __irq_can_set_affinity(struct irq_desc *desc)
 {
@@ -1503,7 +1503,7 @@ bool irq_percpu_is_enabled(unsigned int irq)
 	if (!desc)
 		return false;
 
-	is_enabled = cpumask_test_cpu(cpu, desc->percpu_enabled);
+	is_enabled = cpumask_is_set(cpu, desc->percpu_enabled);
 	irq_put_desc_unlock(desc, flags);
 
 	return is_enabled;

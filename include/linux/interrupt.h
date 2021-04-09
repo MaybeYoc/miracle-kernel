@@ -124,7 +124,7 @@ extern int arch_early_irq_init(void);
 
 #if defined(CONFIG_SMP)
 
-extern cpumask_var_t irq_default_affinity;
+extern cpumask_t * irq_default_affinity;
 #endif
 
 /* PLEASE, avoid to allocate new softirqs, if you need not _really_ high

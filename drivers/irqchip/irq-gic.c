@@ -255,25 +255,26 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 {
 	void __iomem *reg = gic_dist_base(d) + GIC_DIST_TARGET + (gic_irq(d) & ~3);
 	unsigned int cpu, shift = (gic_irq(d) % 4) * 8;
-	u32 val, mask, bit;
+	u32 val, mask;
 	unsigned long flags;
 
 	if (!force)
-		cpu = cpumask_any_and(mask_val, cpu_online_mask);
+	;
+	//	cpu = cpumask_any_and(mask_val, cpu_online_mask);
 	else
 		cpu = cpumask_first(mask_val);
 
-	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
-		return -EINVAL;
+	//if (cpu >= NR_GIC_CPU_IF || cpu >= nr_possible_cpu_ids)
+	//	return -EINVAL;
 
 	gic_lock_irqsave(flags);
 	mask = 0xff << shift;
-	bit = gic_cpu_map[cpu] << shift;
+	//bit = gic_cpu_map[cpu] << shift;
 	val = readl_relaxed(reg) & ~mask;
-	writel_relaxed(val | bit, reg);
+	//writel_relaxed(val | bit, reg);
 	gic_unlock_irqrestore(flags);
 
-	irq_data_update_effective_affinity(d, cpumask_of(cpu));
+	//irq_data_update_effective_affinity(d, cpumask_of(cpu));
 
 	return IRQ_SET_MASK_OK_DONE;
 }
@@ -501,7 +502,7 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	int cpu;
 	unsigned long flags, map = 0;
 
-	if (unlikely(nr_cpu_ids == 1)) {
+	if (unlikely(nr_possible_cpu_ids == 1)) {
 		/* Only one CPU? let's do a self-IPI... */
 		writel_relaxed(2 << 24 | irq,
 			       gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
@@ -511,7 +512,7 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	gic_lock_irqsave(flags);
 
 	/* Convert our logical CPU mask into a physical one. */
-	for_each_cpu(cpu, mask)
+	for_each_cpu_mask(cpu, mask)
 		map |= gic_cpu_map[cpu];
 
 	/*

@@ -130,8 +130,8 @@ struct irq_common_data {
 	unsigned int		node;
 	void			*handler_data;
 	struct msi_desc		*msi_desc;
-	cpumask_var_t		affinity;
-	cpumask_var_t		effective_affinity;
+	cpumask_t *		affinity;
+	cpumask_t *		effective_affinity;
 };
 
 struct irq_chip;
@@ -708,7 +708,7 @@ struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
 	return d->common->effective_affinity;
 }
 static inline void irq_data_update_effective_affinity(struct irq_data *d,
-						      const struct cpumask *m)
+						      struct cpumask *m)
 {
 	cpumask_copy(d->common->effective_affinity, m);
 }

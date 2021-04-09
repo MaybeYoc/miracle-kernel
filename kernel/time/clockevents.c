@@ -24,7 +24,7 @@
 static LIST_HEAD(clockevent_devices);
 static LIST_HEAD(clockevents_released);
 /* Protection for the above */
-static DEFINE_RAW_SPINLOCK(clockevents_lock);
+//static DEFINE_RAW_SPINLOCK(clockevents_lock);
 /* Protection for unbind operations */
 static DEFINE_MUTEX(clockevents_mutex);
 
@@ -107,7 +107,7 @@ static void clockevents_config(struct clock_event_device *dev, u32 freq)
  * Called after a notify add to make devices available which were
  * released from the notifier call.
  */
-static void clockevents_notify_released(void)
+ void clockevents_notify_released(void)
 {
 	struct clock_event_device *dev;
 
@@ -126,6 +126,7 @@ static void clockevents_notify_released(void)
  */
 void clockevents_register_device(struct clock_event_device *dev)
 {
+#if 0
 	unsigned long flags;
 
 	/* Initialize state to DETACHED */
@@ -149,6 +150,7 @@ void clockevents_register_device(struct clock_event_device *dev)
 	clockevents_notify_released();
 
 	raw_spin_unlock_irqrestore(&clockevents_lock, flags);
+#endif
 }
 
 /**
