@@ -280,4 +280,12 @@ static inline int cpulist_parse(const char *buf, cpumask_t *dstp)
 	return bitmap_parselist(buf, cpumask_bits(dstp), nr_cpumask_bits);
 }
 
+/**
+ * cpumask_size - size to allocate for a 'struct cpumask' in bytes
+ */
+static inline unsigned int cpumask_size(void)
+{
+	return BITS_TO_LONGS(nr_cpumask_bits) * sizeof(long);
+}
+
 #endif /* __LINUX_CPUMASK_H */

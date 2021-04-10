@@ -2,7 +2,7 @@
 # Makefile for the linux kernel.
 #
 
-obj-y := panic.o exit.o params.o cpu.o resource.o
+obj-y := panic.o exit.o params.o cpu.o resource.o fork.o
 obj-y += sched/
 obj-y += locking/
 obj-y += time/

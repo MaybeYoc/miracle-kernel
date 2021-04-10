@@ -2,7 +2,7 @@
 #ifndef _LINUX__INIT_TASK_H
 #define _LINUX__INIT_TASK_H
 
-/* TODO */
+extern struct task_struct init_task;
 
 #define __init_task_data __attribute__((__section__(".data..init_task")))
 

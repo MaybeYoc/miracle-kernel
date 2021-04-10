@@ -61,6 +61,8 @@
 #define KERNEL_START      _text
 #define KERNEL_END        _end
 
+#define MAX_DMA_ADDRESS PAGE_OFFSET
+
 /*
  *  I/O port access primitives.
  */

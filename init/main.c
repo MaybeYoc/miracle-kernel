@@ -25,6 +25,9 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/jump_label.h>
+#include <linux/sched/task_stack.h>
+#include <linux/init_task.h>
+#include <linux/cpu.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -105,9 +108,13 @@ asmlinkage __visible void __init start_kernel(void)
 
 	system_state = SYSTEM_BOOTING;
 
+	set_task_stack_end_magic(&init_task);
+
 	smp_setup_processor_id();
 
 	local_irq_disable();
+
+	boot_cpu_init();
 
 	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);

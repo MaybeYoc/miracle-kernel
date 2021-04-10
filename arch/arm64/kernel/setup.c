@@ -89,6 +89,7 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 void __init smp_setup_processor_id(void)
 {
 	u64 mpidr = read_cpuid_mpidr() & MPIDR_HWID_BITMASK;
+	cpu_logical_map(0) = mpidr;
 
 	/*
 	 * clear __my_cpu_offset on boot CPU to avoid hang caused by

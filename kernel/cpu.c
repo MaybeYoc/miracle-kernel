@@ -4,6 +4,7 @@
  * This code is licenced under the GPL.
  */
 #include <linux/smp.h>
+#include <linux/cpumask.h>
 #include <linux/cpuhotplug.h>
 #include <linux/init.h>
 
@@ -42,3 +43,22 @@ const unsigned long cpu_bit_bitmap[BITS_PER_LONG+1][BITS_TO_LONGS(NR_CPUS)] = {
 	MASK_DECLARE_8(48),	MASK_DECLARE_8(56),
 #endif
 };
+
+int __boot_cpu_id;
+/*
+ * Activate the first processor.
+ */
+void __init boot_cpu_init(void)
+{
+	int cpu = smp_processor_id();
+
+	/* Mark the boot cpu "present", "online" etc for SMP and UP case */
+	cpu_set_online(cpu);
+	cpu_set_active(cpu);
+	cpu_set_present(cpu);
+	cpu_set_possible(cpu);
+
+#ifdef CONFIG_SMP
+	__boot_cpu_id = cpu;
+#endif
+}

@@ -720,7 +720,7 @@ static int gic_init_bases(struct gic_chip_data *gic, int irq_start,
 		gic_irqs -= hwirq_base; /* calculate # of irqs to allocate */
 
 		irq_base = irq_alloc_descs(irq_start, 16, gic_irqs,
-					   numa_node_id());
+					   this_cpu_numa_node_id());
 		if (irq_base < 0) {
 			WARN(1, "Cannot allocate irq_descs @ IRQ%d, assuming pre-allocated\n",
 			     irq_start);

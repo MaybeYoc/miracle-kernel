@@ -159,7 +159,7 @@ static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 }
 
 #define alloc_pages(gfp_mask, order) \
-		alloc_pages_node(numa_node_id(), gfp_mask, order)
+		alloc_pages_node(this_cpu_numa_node_id(), gfp_mask, order)
 #define alloc_page(gfp_mask) alloc_pages(gfp_mask, 0)
 
 extern unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order);

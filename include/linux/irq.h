@@ -9,7 +9,6 @@
 #include <linux/msi.h>
 #include <linux/cpumask.h>
 #include <linux/seq_file.h>
-#include <linux/topology.h>
 #include <linux/hardirq.h>
 #include <linux/module.h>
 #include <linux/irqhandler.h>

@@ -203,6 +203,8 @@ void __init bootmem_init(void)
 
 	arm64_numa_init();
 
+	//vmemmap_init();
+
 	zone_sizes_init(min, max);
 
 	memblock_dump_all();
