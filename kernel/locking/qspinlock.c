@@ -543,5 +543,5 @@ release:
 	/*
 	 * release the node
 	 */
-	__this_cpu_dec(qnodes[0].mcs.count);
+	this_cpu_dec(qnodes[0].mcs.count);
 }

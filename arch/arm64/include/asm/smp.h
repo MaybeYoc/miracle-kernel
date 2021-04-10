@@ -54,7 +54,7 @@ DECLARE_PER_CPU_READ_MOSTLY(int, cpu_number);
  * And we can't use this_cpu_ptr() either, as that winds up recursing back
  * here under CONFIG_DEBUG_PREEMPT=y.
  */
-#define raw_smp_processor_id() (*raw_cpu_ptr(&cpu_number))
+#define raw_smp_processor_id() (*this_cpu_ptr(&cpu_number))
 
 /*
  * Initial data for bringing up a secondary CPU.

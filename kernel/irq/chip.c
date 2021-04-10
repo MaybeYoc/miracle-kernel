@@ -872,7 +872,7 @@ void handle_percpu_devid_irq(struct irq_desc *desc)
 		chip->irq_ack(&desc->irq_data);
 
 	if (likely(action)) {
-		res = action->handler(irq, raw_cpu_ptr(action->percpu_dev_id));
+		res = action->handler(irq, this_cpu_ptr(action->percpu_dev_id));
 	} else {
 		unsigned int cpu = smp_processor_id();
 		bool enabled = cpumask_is_set(cpu, desc->percpu_enabled);

@@ -101,8 +101,8 @@ irq_put_desc_unlock(struct irq_desc *desc, unsigned long flags)
 
 static inline void kstat_incr_irqs_this_cpu(struct irq_desc *desc)
 {
-	__this_cpu_inc(*desc->kstat_irqs);
-	__this_cpu_inc(kstat.irqs_sum);
+	this_cpu_inc(*desc->kstat_irqs);
+	this_cpu_inc(kstat.irqs_sum);
 }
 
 #define __irqd_to_state(d) ACCESS_PRIVATE((d)->common, state_use_accessors)

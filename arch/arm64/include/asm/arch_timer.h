@@ -67,7 +67,7 @@ DECLARE_PER_CPU(const struct arch_timer_erratum_workaround *,
 	if (needs_unstable_timer_counter_workaround()) {		\
 		const struct arch_timer_erratum_workaround *wa;		\
 		preempt_disable_notrace();				\
-		wa = __this_cpu_read(timer_unstable_counter_workaround); \
+		wa = this_cpu_read(timer_unstable_counter_workaround); \
 		if (wa && wa->read_##reg)				\
 			_val = wa->read_##reg();			\
 		else							\
