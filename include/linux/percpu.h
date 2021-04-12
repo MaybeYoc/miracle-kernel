@@ -13,18 +13,19 @@
 /* enough to cover all DEFINE_PER_CPUs in modules */
 #define PERCPU_MODULE_RESERVE		0
 
-#ifndef PERCPU_ENOUGH_ROOM
-#define PERCPU_ENOUGH_ROOM						\
-	(ALIGN(__per_cpu_end - __per_cpu_start, SMP_CACHE_BYTES) +	\
-	 PERCPU_MODULE_RESERVE)
-#endif
-
 /* minimum unit size, also is the maximum supported allocation size */
 #define PCPU_MIN_UNIT_SIZE		PFN_ALIGN(32 << 10)
 
 /* minimum allocation size and shift in bytes */
 #define PCPU_MIN_ALLOC_SHIFT		2
 #define PCPU_MIN_ALLOC_SIZE		(1 << PCPU_MIN_ALLOC_SHIFT)
+
+/* number of bits per page, used to trigger a scan if blocks are > PAGE_SIZE */
+#define PCPU_BITS_PER_PAGE		(PAGE_SIZE >> PCPU_MIN_ALLOC_SHIFT)
+
+#define PCPU_BITMAP_BLOCK_SIZE		PAGE_SIZE
+#define PCPU_BITMAP_BLOCK_BITS		(PCPU_BITMAP_BLOCK_SIZE >>	\
+					 PCPU_MIN_ALLOC_SHIFT)
 
 /*
  * Percpu allocator can serve percpu allocations before slab is
@@ -99,21 +100,6 @@ extern void __init pcpu_free_alloc_info(struct pcpu_alloc_info *ai);
 extern int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 					 void *base_addr);
 
-#ifdef CONFIG_NEED_PER_CPU_EMBED_FIRST_CHUNK
-extern int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size,
-				size_t atom_size,
-				pcpu_fc_cpu_distance_fn_t cpu_distance_fn,
-				pcpu_fc_alloc_fn_t alloc_fn,
-				pcpu_fc_free_fn_t free_fn);
-#endif
-
-#ifdef CONFIG_NEED_PER_CPU_PAGE_FIRST_CHUNK
-extern int __init pcpu_page_first_chunk(size_t reserved_size,
-				pcpu_fc_alloc_fn_t alloc_fn,
-				pcpu_fc_free_fn_t free_fn,
-				pcpu_fc_populate_pte_fn_t populate_pte_fn);
-#endif
-
 extern void __percpu *__alloc_reserved_percpu(size_t size, size_t align);
 extern bool is_kernel_percpu_address(unsigned long addr);
 
@@ -134,4 +120,9 @@ extern phys_addr_t per_cpu_ptr_to_phys(void *addr);
 	(typeof(type) __percpu *)__alloc_percpu(sizeof(type),		\
 						__alignof__(type))
 
+extern int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size,
+				size_t atom_size,
+				pcpu_fc_cpu_distance_fn_t cpu_distance_fn,
+				pcpu_fc_alloc_fn_t alloc_fn,
+				pcpu_fc_free_fn_t free_fn);
 #endif /* __LINUX_PERCPU_H */

@@ -13,6 +13,8 @@
 
 #include <asm/pgtable.h>
 
+#define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
+
 /* to align the pointer to the (next) page boundary */
 #define PAGE_ALIGN(addr) ALIGN(addr, PAGE_SIZE)
 

@@ -25,9 +25,20 @@ void smp_prepare_boot_cpu(void);
 #ifdef CONFIG_SMP
 void kick_all_cpus_sync(void);
 extern void __init setup_nr_cpu_ids(void);
+extern int __boot_cpu_id;
+
+static inline int get_boot_cpu_id(void)
+{
+	return __boot_cpu_id;
+}
+
 #else
 static inline void kick_all_cpus_sync(void) {  }
 static inline void setup_nr_cpu_ids(void) { }
+static inline int get_boot_cpu_id(void)
+{
+	return 0;
+}
 #endif
 
 /*
