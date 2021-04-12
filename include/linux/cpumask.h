@@ -166,7 +166,64 @@ static inline bool cpumask_intersects(cpumask_t *src1p, const cpumask_t *src2p)
 						      nr_cpumask_bits);
 }
 
-#if NR_CPUS > 1
+/**
+ * cpulist_parse - extract a cpumask from a user string of ranges
+ * @buf: the buffer to extract from
+ * @dstp: the cpumask to set.
+ *
+ * Returns -errno, or 0 for success.
+ */
+static inline int cpulist_parse(const char *buf, cpumask_t *dstp)
+{
+	return bitmap_parselist(buf, cpumask_bits(dstp), nr_cpumask_bits);
+}
+
+/**
+ * cpumask_size - size to allocate for a 'struct cpumask' in bytes
+ */
+static inline unsigned int cpumask_size(void)
+{
+	return BITS_TO_LONGS(nr_cpumask_bits) * sizeof(long);
+}
+
+#if NR_CPUS <= BITS_PER_LONG
+#define CPU_BITS_ALL						\
+{								\
+	[BITS_TO_LONGS(NR_CPUS)-1] = BITMAP_LAST_WORD_MASK(NR_CPUS)	\
+}
+
+#else /* NR_CPUS > BITS_PER_LONG */
+
+#define CPU_BITS_ALL						\
+{								\
+	[0 ... BITS_TO_LONGS(NR_CPUS)-2] = ~0UL,		\
+	[BITS_TO_LONGS(NR_CPUS)-1] = BITMAP_LAST_WORD_MASK(NR_CPUS)	\
+}
+#endif /* NR_CPUS > BITS_PER_LONG */
+
+#if NR_CPUS <= BITS_PER_LONG
+#define CPU_MASK_ALL							\
+(cpumask_t) { {								\
+	[BITS_TO_LONGS(NR_CPUS)-1] = BITMAP_LAST_WORD_MASK(NR_CPUS)	\
+} }
+#else
+#define CPU_MASK_ALL							\
+(cpumask_t) { {								\
+	[0 ... BITS_TO_LONGS(NR_CPUS)-2] = ~0UL,			\
+	[BITS_TO_LONGS(NR_CPUS)-1] = BITMAP_LAST_WORD_MASK(NR_CPUS)	\
+} }
+#endif /* NR_CPUS > BITS_PER_LONG */
+
+#define CPU_MASK_NONE							\
+(cpumask_t) { {								\
+	[0 ... BITS_TO_LONGS(NR_CPUS)-1] =  0UL				\
+} }
+
+#define CPU_MASK_CPU0							\
+(cpumask_t) { {								\
+	[0] =  1UL							\
+} }
+
 #define for_each_cpu_mask(cpu, mask)		\
 	for ((cpu) = cpumask_first(mask);	\
 		(cpu) < NR_CPUS;		\
@@ -187,28 +244,11 @@ static inline bool cpumask_intersects(cpumask_t *src1p, const cpumask_t *src2p)
 		(cpu) = cpumask_next_and((cpu), (mask), (and)),		\
 		(cpu) < nr_possible_cpu_ids;)
 
-#else
-
-#define for_each_cpu_mask(cpu, mask)	\
-	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask)
-
-#define for_each_cpu_not_mask(cpu, mask)	\
-	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask)
-
-#define for_each_cpu_wrap_mask(cpu, mask, start)	\
-	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask, (void)(start))
-
-#define for_each_cpu_and_mask(cpu, mask, and)	\
-	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask, (void)and)
-
-#endif /* NR_CPUS > 1 */
-
 #define for_each_possible_cpu(cpu) for_each_cpu_mask(cpu, cpu_possible_mask)
 #define for_each_online_cpu(cpu) for_each_cpu_mask(cpu, cpu_online_mask)
 #define for_each_present_cpu(cpu) for_each_cpu_mask(cpu, cpu_present_mask)
 #define for_each_active_cpu(cpu) for_each_cpu_mask(cpu, cpu_active_mask)
 
-#if NR_CPUS > 1
 extern unsigned int nr_possible_cpu_ids;
 extern unsigned int nr_online_cpu_ids;
 extern unsigned int nr_present_cpu_ids;
@@ -238,54 +278,9 @@ static inline void cpu_set_active(int cpu)
 	nr_active_cpu_ids = cpumask_weight(cpu_active_mask);
 }
 
-#define num_online_cpus()	cpumask_weight(cpu_online_mask)
-#define num_possible_cpus()	cpumask_weight(cpu_possible_mask)
-#define num_present_cpus()	cpumask_weight(cpu_present_mask)
-#define num_active_cpus()	cpumask_weight(cpu_active_mask)
 #define cpu_online(cpu)		cpumask_is_set((cpu), cpu_online_mask)
 #define cpu_possible(cpu)	cpumask_is_set((cpu), cpu_possible_mask)
 #define cpu_present(cpu)	cpumask_is_set((cpu), cpu_present_mask)
 #define cpu_active(cpu)		cpumask_is_set((cpu), cpu_active_mask)
-#else
-#define nr_possible_cpu_ids		1U
-#define nr_online_cpu_ids		1U
-#define nr_present_cpu_ids		1U
-#define nr_active_cpu_ids		1U
-
-static inline void cpu_set_possible(int cpu) {}
-static inline void cpu_set_online(int cpu) {}
-static inline void cpu_set_present(int cpu) {}
-static inline void cpu_set_active(int cpu) {}
-
-#define num_online_cpus()	1U
-#define num_possible_cpus()	1U
-#define num_present_cpus()	1U
-#define num_active_cpus()	1U
-#define cpu_online(cpu)		((cpu) == 0)
-#define cpu_possible(cpu)	((cpu) == 0)
-#define cpu_present(cpu)	((cpu) == 0)
-#define cpu_active(cpu)		((cpu) == 0)
-
-#endif /* NR_CPUS > 1 */
-
-/**
- * cpulist_parse - extract a cpumask from a user string of ranges
- * @buf: the buffer to extract from
- * @dstp: the cpumask to set.
- *
- * Returns -errno, or 0 for success.
- */
-static inline int cpulist_parse(const char *buf, cpumask_t *dstp)
-{
-	return bitmap_parselist(buf, cpumask_bits(dstp), nr_cpumask_bits);
-}
-
-/**
- * cpumask_size - size to allocate for a 'struct cpumask' in bytes
- */
-static inline unsigned int cpumask_size(void)
-{
-	return BITS_TO_LONGS(nr_cpumask_bits) * sizeof(long);
-}
 
 #endif /* __LINUX_CPUMASK_H */

@@ -16,6 +16,12 @@
 
 typedef void (*smp_call_func_t)(void *info);
 
+/*
+ * Mark the boot cpu "online" so that it can call console drivers in
+ * printk() and can access its per-cpu storage.
+ */
+void smp_prepare_boot_cpu(void);
+
 #ifdef CONFIG_SMP
 void kick_all_cpus_sync(void);
 extern void __init setup_nr_cpu_ids(void);

@@ -377,7 +377,7 @@ static u8 gic_get_cpumask(struct gic_chip_data *gic)
 			break;
 	}
 
-	if (!mask && num_possible_cpus() > 1)
+	if (!mask && nr_possible_cpu_ids > 1)
 		pr_crit("GIC CPU mask not found - kernel will fail to boot.\n");
 
 	return mask;

@@ -8,11 +8,6 @@
 #include <linux/cpuhotplug.h>
 #include <linux/init.h>
 
-struct cpumask __cpu_possible_mask __read_mostly;
-struct cpumask __cpu_online_mask __read_mostly;
-struct cpumask __cpu_present_mask __read_mostly;
-struct cpumask __cpu_active_mask __read_mostly;
-
 int __cpuhp_setup_state(enum cpuhp_state state,	const char *name, bool invoke,
 			int (*startup)(unsigned int cpu),
 			int (*teardown)(unsigned int cpu), bool multi_instance)
@@ -53,10 +48,10 @@ void __init boot_cpu_init(void)
 	int cpu = smp_processor_id();
 
 	/* Mark the boot cpu "present", "online" etc for SMP and UP case */
+	cpu_set_possible(cpu);
 	cpu_set_online(cpu);
 	cpu_set_active(cpu);
 	cpu_set_present(cpu);
-	cpu_set_possible(cpu);
 
 #ifdef CONFIG_SMP
 	__boot_cpu_id = cpu;

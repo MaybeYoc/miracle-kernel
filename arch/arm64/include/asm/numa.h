@@ -4,28 +4,29 @@
 
 #include <linux/compiler.h>
 #include <linux/nodemask.h>
+#include <linux/cpumask.h>
 #include <linux/init.h>
 
-#ifdef CONFIG_NUMA
+extern nodemask_t numa_nodes_parsed;
+
+cpumask_t *__cpumask_of_node(int node);
+#define cpumask_of_node(node) __cpumask_of_node(node)
 
 int __node_distance(int from, int to);
 #define node_distance(a, b) __node_distance(a, b)
 
-extern nodemask_t numa_nodes_parsed;
+int __cpu_to_node(int cpu);
+#define cpu_to_node(cpu) __cpu_to_node(cpu)
 
-/* Mappings between node number and cpus on that node. */
-extern cpumask_t *node_to_cpumask_map[MAX_NUMNODES];
-
-/* Returns a pointer to the cpumask of CPUs on Node 'node'. */
-static inline cpumask_t *cpumask_of_node(int node)
-{
-	return node_to_cpumask_map[node];
-}
-
-#endif
+void __set_cpu_numa_node(int cpu, int node);
+#define set_cpu_numa_node(cpu, node) __set_cpu_numa_node(cpu, node)
 
 void __init arm64_numa_init(void);
 int __init numa_add_memblk(int nodeid, u64 start, u64 end);
 void __init numa_set_distance(int from, int to, int distance);
+
+void numa_add_cpu(unsigned int cpu);
+void numa_remove_cpu(unsigned int cpu);
+void numa_clear_node(unsigned int cpu);
 
 #endif	/* __ASM_NUMA_H */

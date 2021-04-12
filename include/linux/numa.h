@@ -12,7 +12,7 @@
 
 #define	NUMA_NO_NODE	(-1)
 
-#include <linux/percpu.h>
+#include <linux/smp.h>
 
 #include <asm/numa.h>
 
@@ -31,12 +31,6 @@
 #endif
 
 #ifndef RECLAIM_DISTANCE
-/*
- * If the distance between nodes in a system is larger than RECLAIM_DISTANCE
- * (in whatever arch specific measurement units returned by node_distance())
- * and node_reclaim_mode is enabled then the VM will only call node_reclaim()
- * on nodes within this distance.
- */
 #define RECLAIM_DISTANCE 30
 #endif
 
@@ -44,55 +38,26 @@
 #define PENALTY_FOR_NODE_WITH_CPUS	(1)
 #endif
 
-#ifdef CONFIG_NUMA
-DECLARE_PER_CPU(int, numa_node);
-
-#ifndef this_cpu_numa_node_id
-static inline int this_cpu_numa_node_id(void)
-{
-	return this_cpu_read(numa_node);
-}
-#endif
-
 #ifndef cpu_to_node
-static inline int cpu_to_node(int cpu)
-{
-	return per_cpu(numa_node, cpu);
-}
-#endif
-
-#ifndef this_cpu_set_numa_node
-static inline void this_cpu_set_numa_node(int node)
-{
-	this_cpu_write(numa_node, node);
-}
-#endif
-
-#ifndef set_cpu_numa_node
-static inline void set_cpu_numa_node(int cpu, int node)
-{
-	per_cpu(numa_node, cpu) = node;
-}
-#endif
-
-#else
-
-#ifndef this_cpu_numa_node_id
-#define this_cpu_numa_node_id() 0
-#endif
-
-#ifndef cpu_to_node
-#define cpu_to_node(cpu) 0
-#endif
-
-#ifndef this_cpu_set_numa_node
-#define this_cpu_set_numa_node(node)
+#define cpu_to_node(cpu)	0
 #endif
 
 #ifndef set_cpu_numa_node
 #define set_cpu_numa_node(cpu, node)
 #endif
 
-#endif /* CONFIG_NUMA */
+#ifndef this_cpu_numa_node_id
+static inline int this_cpu_numa_node_id(void)
+{
+	return cpu_to_node(smp_processor_id());
+}
+#endif
+
+#ifndef this_cpu_set_numa_node
+static inline void this_cpu_set_numa_node(int node)
+{
+	set_cpu_numa_node(smp_processor_id(), node);
+}
+#endif
 
 #endif /* _LINUX_NUMA_H */

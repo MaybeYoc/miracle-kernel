@@ -23,7 +23,9 @@
 #include <linux/of_fdt.h>
 #include <linux/ioport.h>
 #include <linux/memblock.h>
+#include <linux/psci.h>
 
+#include <asm/cpu_ops.h>
 #include <asm/daifflags.h>
 #include <asm/fixmap.h>
 #include <asm/sections.h>
@@ -209,6 +211,9 @@ void __init setup_arch(char **cmdline_p)
 
 	request_standard_resources();
 
+	psci_dt_init();
+
+	cpu_read_bootcpu_ops();
 	smp_init_cpus();
 
 	if (boot_args[1] || boot_args[2] || boot_args[3]) {

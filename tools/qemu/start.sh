@@ -20,14 +20,14 @@ qemu-system-aarch64 -cpu cortex-a57 -machine type=virt,gic-version=2 	\
 		-numa dist,src=0,dst=1,val=15	\
 		-numa dist,src=0,dst=2,val=20	\
 		-numa dist,src=0,dst=3,val=15	\
-		-numa dist,src=0,dst=4,val=10	\
+		-numa dist,src=0,dst=4,val=20	\
 		-numa dist,src=1,dst=1,val=10	\
 		-numa dist,src=1,dst=2,val=25	\
 		-numa dist,src=1,dst=3,val=15	\
-		-numa dist,src=1,dst=4,val=10	\
+		-numa dist,src=1,dst=4,val=15	\
 		-numa dist,src=2,dst=2,val=10	\
 		-numa dist,src=2,dst=3,val=30	\
-		-numa dist,src=2,dst=4,val=10	\
+		-numa dist,src=2,dst=4,val=25	\
 		-numa dist,src=3,dst=3,val=10	\
 		-numa dist,src=3,dst=4,val=15	\
 		-numa dist,src=4,dst=4,val=10	\

@@ -12,6 +12,17 @@
 
 #include <asm/barrier.h>
 
+struct cpumask __cpu_possible_mask __read_mostly;
+struct cpumask __cpu_online_mask __read_mostly;
+struct cpumask __cpu_present_mask __read_mostly;
+struct cpumask __cpu_active_mask __read_mostly;
+
+/* Setup number of possible processor ids */
+unsigned int nr_possible_cpu_ids __read_mostly = NR_CPUS;
+unsigned int nr_online_cpu_ids;
+unsigned int nr_present_cpu_ids;
+unsigned int nr_active_cpu_ids;
+
 /* An arch may set nr_possible_cpu_ids earlier if needed, so this would be redundant */
 void __init setup_nr_cpu_ids(void)
 {

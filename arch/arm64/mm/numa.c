@@ -30,12 +30,10 @@ struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
 nodemask_t numa_nodes_parsed __initdata;
 
 static int cpu_to_node_map[NR_CPUS] = { [0 ... NR_CPUS-1] = NUMA_NO_NODE };
-cpumask_t *node_to_cpumask_map[MAX_NUMNODES];
+static cpumask_t *node_to_cpumask_map[MAX_NUMNODES];
 
 static int numa_distance_cnt;
 static u8 *numa_distance;
-
-DEFINE_PER_CPU(int, numa_node);
 
 static void numa_update_cpu(unsigned int cpu, bool remove)
 {
@@ -77,10 +75,6 @@ static void __init setup_node_to_cpumask_map(void)
 {
 	int node;
 
-	/* setup nr_possible_nodes if not done yet */
-	if (nr_possible_nodes == MAX_NUMNODES)
-		setup_nr_node_ids();
-
 	/* allocate and clear the mapping */
 	for (node = 0; node < nr_possible_nodes; node++) {
 		node_to_cpumask_map[node] = memblock_alloc(cpumask_size(), SMP_CACHE_BYTES);
@@ -91,29 +85,33 @@ static void __init setup_node_to_cpumask_map(void)
 	pr_debug("Node to cpumask map for %d nodes\n", nr_possible_nodes);
 }
 
-/*
- *  Set the cpu to node and mem mapping
- */
-void numa_store_cpu_info(unsigned int cpu)
+int __cpu_to_node(int cpu)
 {
-	set_cpu_numa_node(cpu, cpu_to_node_map[cpu]);
+	return cpu_to_node_map[cpu];
 }
 
-void __init early_map_cpu_to_node(unsigned int cpu, int nid)
+void __set_cpu_numa_node(int cpu, int node)
 {
 	/* fallback to node 0 */
-	if (nid < 0 || nid >= MAX_NUMNODES)
-		nid = 0;
+	if (node < 0 || node >= MAX_NUMNODES)
+		node = 0;
 
-	cpu_to_node_map[cpu] = nid;
+	cpu_to_node_map[cpu] = node;
+}
 
-	/*
-	 * We should set the numa node of cpu0 as soon as possible, because it
-	 * has already been set up online before. cpu_to_node(0) will soon be
-	 * called.
-	 */
-	if (!cpu)
-		set_cpu_numa_node(cpu, nid);
+/**
+ * Return NUMA distance @from to @to
+ */
+int __node_distance(int from, int to)
+{
+	if (from >= numa_distance_cnt || to >= numa_distance_cnt)
+		return from == to ? LOCAL_DISTANCE : REMOTE_DISTANCE;
+	return numa_distance[from * numa_distance_cnt + to];
+}
+
+cpumask_t *__cpumask_of_node(int node)
+{
+	return node_to_cpumask_map[node];
 }
 
 #if 0
@@ -223,7 +221,7 @@ static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
  *
  * The current table is freed.
  */
-void __init numa_free_distance(void)
+static void __init numa_free_distance(void)
 {
 	size_t size;
 
@@ -308,16 +306,6 @@ void __init numa_set_distance(int from, int to, int distance)
 	numa_distance[from * numa_distance_cnt + to] = distance;
 }
 
-/**
- * Return NUMA distance @from to @to
- */
-int __node_distance(int from, int to)
-{
-	if (from >= numa_distance_cnt || to >= numa_distance_cnt)
-		return from == to ? LOCAL_DISTANCE : REMOTE_DISTANCE;
-	return numa_distance[from * numa_distance_cnt + to];
-}
-
 static int __init numa_register_nodes(void)
 {
 	int nid;
@@ -341,10 +329,6 @@ static int __init numa_register_nodes(void)
 		node_set_online(nid);
 	}
 
-	/* Setup online nodes to actual nodes*/
-	*node_possible_mask = numa_nodes_parsed;
-	node_set_possible(0);
-
 	return 0;
 }
 
@@ -353,7 +337,6 @@ static int __init numa_init(int (*init_func)(void))
 	int ret;
 
 	nodemask_clearall_node(&numa_nodes_parsed);
-	nodemask_clearall_node(node_possible_mask);
 	nodemask_clearall_node(node_online_mask);
 
 	ret = numa_alloc_distance();

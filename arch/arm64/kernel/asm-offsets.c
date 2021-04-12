@@ -24,6 +24,7 @@
 #include <linux/smp.h>
 #include <linux/sched.h>
 #include <linux/thread_info.h>
+#include <linux/arm-smccc.h>
 
 struct test_struct {
 	int a;
@@ -78,6 +79,11 @@ int main(void)
 	DEFINE(S_ORIG_ADDR_LIMIT,	offsetof(struct pt_regs, orig_addr_limit));
 	DEFINE(S_STACKFRAME,		offsetof(struct pt_regs, stackframe));
 	DEFINE(S_FRAME_SIZE,		sizeof(struct pt_regs));
+	BLANK();
+	DEFINE(ARM_SMCCC_RES_X0_OFFS,		offsetof(struct arm_smccc_res, a0));
+	DEFINE(ARM_SMCCC_RES_X2_OFFS,		offsetof(struct arm_smccc_res, a2));
+	DEFINE(ARM_SMCCC_QUIRK_ID_OFFS,	offsetof(struct arm_smccc_quirk, id));
+	DEFINE(ARM_SMCCC_QUIRK_STATE_OFFS,	offsetof(struct arm_smccc_quirk, state));
 
 	return 0;
 }

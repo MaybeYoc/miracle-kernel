@@ -3,7 +3,6 @@
 #define __LINUX_NODEMASK_H
 
 #include <linux/bitmap.h>
-#include <linux/numa.h>
 
 typedef struct { DECLARE_BITMAP(bits, MAX_NUMNODES); } nodemask_t;
 
@@ -84,20 +83,38 @@ static inline int nodemask_weight(nodemask_t *srcp)
 	return bitmap_weight(nodemask_bits(srcp), nr_nodemask_bits);
 }
 
-#if MAX_NUMNODES > 1
+#define NODE_MASK_LAST_WORD BITMAP_LAST_WORD_MASK(MAX_NUMNODES)
+
+#if MAX_NUMNODES <= BITS_PER_LONG
+
+#define NODE_MASK_ALL							\
+((nodemask_t) { {							\
+	[BITS_TO_LONGS(MAX_NUMNODES)-1] = NODE_MASK_LAST_WORD		\
+} })
+
+#else
+
+#define NODE_MASK_ALL							\
+((nodemask_t) { {							\
+	[0 ... BITS_TO_LONGS(MAX_NUMNODES)-2] = ~0UL,			\
+	[BITS_TO_LONGS(MAX_NUMNODES)-1] = NODE_MASK_LAST_WORD		\
+} })
+
+#endif
+
+#define NODE_MASK_NONE							\
+((nodemask_t) { {							\
+	[0 ... BITS_TO_LONGS(MAX_NUMNODES)-1] =  0UL			\
+} })
+
 #define for_each_node_mask(node, mask)		\
 	for ((node) = nodemask_first(mask);	\
 		(node) < MAX_NUMNODES;		\
 		(node) = nodemask_next((node), (mask)))
-#else
-#define for_each_node_mask(node, mask)		\
-	for ((node) = 0; (node) < 1; (node)++)
-#endif /* MAX_NUMNODES */
 
 #define for_each_possible_node(node) for_each_node_mask(node, node_possible_mask)
 #define for_each_online_node(node) for_each_node_mask(node, node_online_mask)
 
-#if MAX_NUMNODES > 1
 #define first_possible_node nodemask_first(node_possible_mask)
 #define first_online_node	nodemask_first(node_online_mask)
 
@@ -110,35 +127,10 @@ static inline int nodemask_weight(nodemask_t *srcp)
 extern int nr_possible_nodes;
 extern int nr_online_nodes;
 
-static inline void node_set_possible(int node)
-{
-	nodemask_set_node(node, node_possible_mask);
-	nr_possible_nodes = nodemask_weight(node_possible_mask);
-}
-
 static inline void node_set_online(int node)
 {
 	nodemask_set_node(node, node_online_mask);
 	nr_online_nodes = nodemask_weight(node_online_mask);
 }
-
-#else
-
-#define first_possible_node 0
-#define first_online_node 0
-
-#define next_possible_node(node) nr_nodemask_bits
-#define next_online_node(node) nr_nodemask_bits
-
-#define node_possible(node) ((node) == 0)
-#define node_online(node) ((node) == 0)
-
-#define nr_possible_nodes 1
-#define nr_online_nodes 1
-
-static inline void node_set_possible(int node) {}
-static inline void node_set_online(int node) {}
-
-#endif /* MAX_NUMNODES > 1 */
 
 #endif /* __LINUX_NODEMASK_H */

@@ -21,6 +21,10 @@
 #include <stdarg.h>
 #include <linux/sched.h>
 #include <linux/percpu.h>
+#include <linux/reboot.h>
+
+void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
+void (*pm_power_off)(void);
 
 /*
  * Called from setup_new_exec() after (COMPAT_)SET_PERSONALITY.

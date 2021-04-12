@@ -24,8 +24,11 @@
 
 #include "internal.h"
 
-nodemask_t __node_possible_mask;
-nodemask_t __node_online_mask;
+nodemask_t __node_possible_mask = NODE_MASK_ALL;
+nodemask_t __node_online_mask __read_mostly = { { [0] = 1UL } };
+
+int nr_possible_nodes __read_mostly = MAX_NUMNODES;
+int nr_online_nodes __read_mostly = 1;
 
 static unsigned long arch_zone_lowest_possible_pfn[MAX_NR_ZONES] __initdata;
 static unsigned long arch_zone_highest_possible_pfn[MAX_NR_ZONES] __initdata;
@@ -35,11 +38,6 @@ static DEFINE_PER_CPU(struct per_cpu_pageset, boot_pageset);
 static DEFINE_PER_CPU(struct per_cpu_nodestat, boot_nodestats);
 
 atomic_long_t _totalram_pages __read_mostly;
-
-#if MAX_NUMNODES > 1
-int nr_possible_nodes __read_mostly = MAX_NUMNODES;
-int nr_online_nodes __read_mostly = 1;
-#endif
 
 static char * const zone_names[MAX_NR_ZONES] = {
 #ifdef CONFIG_ZONE_DMA

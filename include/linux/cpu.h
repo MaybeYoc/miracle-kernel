@@ -14,6 +14,16 @@
 #ifndef _LINUX_CPU_H_
 #define _LINUX_CPU_H_
 
+#include <linux/device.h>
+
+struct cpu {
+	int node_id;		/* The node which contains the CPU */
+	int hotpluggable;	/* creates sysfs control file if hotpluggable */
+	struct device dev;
+};
+
 extern void boot_cpu_init(void);
+
+#include <asm/cpu.h>
 
 #endif /* _LINUX_CPU_H_ */

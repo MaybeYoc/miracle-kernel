@@ -78,4 +78,6 @@ static inline size_t get_vm_area_size(const struct vm_struct *area)
 #define VMALLOC_TOTAL 0UL
 #endif
 
+extern void vmemmap_init(void);
+
 #endif /* _LINUX_VMALLOC_H */

@@ -25,6 +25,7 @@
 #include <linux/of_fdt.h>
 #include <linux/string.h>
 #include <linux/initrd.h>
+#include <linux/vmalloc.h>
 
 #include <asm/kernel-pgtable.h>
 #include <asm/memory.h>
@@ -203,7 +204,7 @@ void __init bootmem_init(void)
 
 	arm64_numa_init();
 
-	//vmemmap_init();
+	vmemmap_init();
 
 	zone_sizes_init(min, max);
 
