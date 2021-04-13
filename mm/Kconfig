@@ -4,4 +4,12 @@ menu "Memory Management options"
 config ARCH_DISCARD_MEMBLOCK
 	bool
 
+#
+# UP and nommu archs use km based percpu allocator
+#
+config NEED_PER_CPU_KM
+	depends on !SMP
+	bool
+	default y
+
 endmenu

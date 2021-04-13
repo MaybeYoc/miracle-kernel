@@ -150,7 +150,6 @@ struct pcpu_chunk *pcpu_first_chunk __ro_after_init;
 struct pcpu_chunk *pcpu_reserved_chunk __ro_after_init;
 
 DEFINE_SPINLOCK(pcpu_lock);	/* all internal data structures */
-static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop, map ext */
 
 struct list_head *pcpu_slot __ro_after_init; /* chunk list slots */
 
@@ -175,6 +174,7 @@ static bool pcpu_atomic_alloc_failed;
 
 static void pcpu_schedule_balance_work(void)
 {
+	WARN_ON(1);
 }
 
 /**
@@ -264,11 +264,6 @@ static void pcpu_next_unpop(unsigned long *bitmap, int *rs, int *re, int end)
 	for ((rs) = (start), pcpu_next_unpop((bitmap), &(rs), &(re), (end)); \
 	     (rs) < (re);						     \
 	     (rs) = (re) + 1, pcpu_next_unpop((bitmap), &(rs), &(re), (end)))
-
-#define pcpu_for_each_pop_region(bitmap, rs, re, start, end)		     \
-	for ((rs) = (start), pcpu_next_pop((bitmap), &(rs), &(re), (end));   \
-	     (rs) < (re);						     \
-	     (rs) = (re) + 1, pcpu_next_pop((bitmap), &(rs), &(re), (end)))
 
 /*
  * The following are helper functions to help access bitmaps and convert
@@ -450,9 +445,12 @@ static void *pcpu_mem_zalloc(size_t size, gfp_t gfp)
 
 	if (size <= PAGE_SIZE)
 		return kzalloc(size, gfp);
-	/* TODO */
-	//else
-	//	return __vmalloc(size, gfp | __GFP_ZERO, PAGE_KERNEL);
+	else {
+		BUG();
+		return NULL;
+		/* TODO */
+		//return __vmalloc(size, gfp | __GFP_ZERO, PAGE_KERNEL);
+	}
 }
 
 /**
@@ -463,8 +461,8 @@ static void *pcpu_mem_zalloc(size_t size, gfp_t gfp)
  */
 static void pcpu_mem_free(void *ptr)
 {
-	//kvfree(ptr);
 	kfree(ptr);
+	//kvfree(ptr);
 }
 
 /**
@@ -1237,55 +1235,21 @@ static void pcpu_chunk_populated(struct pcpu_chunk *chunk, int page_start,
  * should be implemented.
  *
  * pcpu_populate_chunk		- populate the specified range of a chunk
- * pcpu_depopulate_chunk	- depopulate the specified range of a chunk
  * pcpu_create_chunk		- create a new chunk
- * pcpu_destroy_chunk		- destroy a chunk, always preceded by full depop
  * pcpu_addr_to_page		- translate address to physical address
  * pcpu_verify_alloc_info	- check alloc_info is acceptable during init
  */
 static int pcpu_populate_chunk(struct pcpu_chunk *chunk,
-			       int page_start, int page_end, gfp_t gfp)
-{
-	return 0;
-}
+			       int page_start, int page_end, gfp_t gfp);
+static struct pcpu_chunk *pcpu_create_chunk(gfp_t gfp);
+static struct page *pcpu_addr_to_page(void *addr);
+static int __init pcpu_verify_alloc_info(const struct pcpu_alloc_info *ai);
 
-static struct pcpu_chunk *pcpu_create_chunk(gfp_t gfp)
-{
-	const int nr_pages = pcpu_group_sizes[0] >> PAGE_SHIFT;
-	struct pcpu_chunk *chunk;
-	struct page *pages;
-	unsigned long flags;
-	int i;
-
-	chunk = pcpu_alloc_chunk(gfp);
-	if (!chunk)
-		return NULL;
-
-	pages = alloc_pages(gfp, order_base_2(nr_pages));
-	if (!pages) {
-		pcpu_free_chunk(chunk);
-		return NULL;
-	}
-
-	for (i = 0; i < nr_pages; i++)
-		pcpu_set_page_chunk(nth_page(pages, i), chunk);
-
-	chunk->data = pages;
-	chunk->base_addr = page_address(pages) - pcpu_group_offsets[0];
-
-	spin_lock_irqsave(&pcpu_lock, flags);
-	pcpu_chunk_populated(chunk, 0, nr_pages, false);
-	spin_unlock_irqrestore(&pcpu_lock, flags);
-
-	pcpu_stats_chunk_alloc();
-
-	return chunk;
-}
-
-static struct page *pcpu_addr_to_page(void *addr)
-{
-	return virt_to_page(addr);
-}
+#ifdef CONFIG_NEED_PER_CPU_KM
+#include "percpu-km.c"
+#else
+#include "percpu-vm.c"
+#endif
 
 /**
  * pcpu_chunk_addr_search - determine chunk containing specified address
@@ -1457,8 +1421,6 @@ area_found:
 			pcpu_chunk_populated(chunk, rs, re, true);
 			spin_unlock_irqrestore(&pcpu_lock, flags);
 		}
-
-		mutex_unlock(&pcpu_alloc_mutex);
 	}
 
 	if (pcpu_nr_empty_pop_pages < PCPU_EMPTY_POP_PAGES_LOW)
@@ -1486,8 +1448,6 @@ fail:
 		/* see the flag handling in pcpu_blance_workfn() */
 		pcpu_atomic_alloc_failed = true;
 		pcpu_schedule_balance_work();
-	} else {
-		mutex_unlock(&pcpu_alloc_mutex);
 	}
 	return NULL;
 }
@@ -1684,13 +1644,18 @@ phys_addr_t per_cpu_ptr_to_phys(void *addr)
 		}
 	}
 
-//	if (in_first_chunk) {
-//		if (!is_vmalloc_addr(addr))
-//			return __pa(addr);
-//		else
-//			return page_to_phys(vmalloc_to_page(addr)) +
-//			       offset_in_page(addr);
-//	} else
+	if (in_first_chunk) {
+		if (!is_vmalloc_addr(addr))
+			return __pa(addr);
+		else {
+			BUG();
+			return 0;
+			/* TODO */
+			//return page_to_phys(vmalloc_to_page(addr)) +
+			//       offset_in_page(addr);
+		}
+			
+	} else
 		return page_to_phys(pcpu_addr_to_page(addr)) +
 		       offset_in_page(addr);
 }
@@ -1906,6 +1871,7 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	PCPU_SETUP_BUG_ON(!IS_ALIGNED(ai->reserved_size, PCPU_MIN_ALLOC_SIZE));
 	PCPU_SETUP_BUG_ON(!(IS_ALIGNED(PCPU_BITMAP_BLOCK_SIZE, PAGE_SIZE) ||
 			    IS_ALIGNED(PAGE_SIZE, PCPU_BITMAP_BLOCK_SIZE)));
+	PCPU_SETUP_BUG_ON(pcpu_verify_alloc_info(ai) < 0);
 
 	/* process group information and build config tables accordingly */
 	group_offsets = memblock_alloc(ai->nr_groups * sizeof(group_offsets[0]),
@@ -2033,15 +1999,6 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 }
 
 #ifdef CONFIG_SMP
-
-const char * const pcpu_fc_names[PCPU_FC_NR] __initconst = {
-	[PCPU_FC_AUTO]	= "auto",
-	[PCPU_FC_EMBED]	= "embed",
-	[PCPU_FC_PAGE]	= "page",
-};
-
-enum pcpu_fc pcpu_chosen_fc __initdata = PCPU_FC_AUTO;
-
 /**
  * pcpu_build_alloc_info - build alloc_info considering distances between CPUs
  * @reserved_size: the size of reserved percpu area in bytes
@@ -2335,6 +2292,7 @@ out_free:
 	return rc;
 }
 
+#ifndef	CONFIG_HAVE_SETUP_PER_CPU_AREA
 /*
  * Generic SMP percpu area setup.
  *
@@ -2348,6 +2306,40 @@ out_free:
  * mappings on applicable archs.
  */
 unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+
+static void * __init pcpu_dfl_fc_alloc(unsigned int cpu, size_t size,
+				       size_t align)
+{
+	return  memblock_alloc_from_nopanic(
+			size, align, __pa(MAX_DMA_ADDRESS));
+}
+
+static void __init pcpu_dfl_fc_free(void *ptr, size_t size)
+{
+	memblock_free_early(__pa(ptr), size);
+}
+
+void __init setup_per_cpu_areas(void)
+{
+	unsigned long delta;
+	unsigned int cpu;
+	int rc;
+
+	/*
+	 * Always reserve area for module percpu variables.  That's
+	 * what the legacy allocator did.
+	 */
+	rc = pcpu_embed_first_chunk(PERCPU_MODULE_RESERVE,
+				    PERCPU_DYNAMIC_RESERVE, PAGE_SIZE, NULL,
+				    pcpu_dfl_fc_alloc, pcpu_dfl_fc_free);
+	if (rc < 0)
+		panic("Failed to initialize percpu areas.");
+
+	delta = (unsigned long)pcpu_base_addr - (unsigned long)__per_cpu_start;
+	for_each_possible_cpu(cpu)
+		__per_cpu_offset[cpu] = delta + pcpu_unit_offsets[cpu];
+}
+#endif	/* CONFIG_HAVE_SETUP_PER_CPU_AREA */
 
 #else	/* CONFIG_SMP */
 

@@ -190,6 +190,24 @@ static inline bool debug_pagealloc_enabled(void)
 {
 	return false;
 }
+
+/*
+ * Determine if an address is within the vmalloc range
+ *
+ * On nommu, vmalloc/vfree wrap through kmalloc/kfree directly, so there
+ * is no special casing required.
+ */
+static inline bool is_vmalloc_addr(const void *x)
+{
+#ifdef CONFIG_MMU
+	unsigned long addr = (unsigned long)x;
+
+	return addr >= VMALLOC_START && addr < VMALLOC_END;
+#else
+	return false;
+#endif
+}
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_MM_H */

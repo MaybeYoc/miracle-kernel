@@ -115,6 +115,9 @@ cpumask_t *__cpumask_of_node(int node)
 	return node_to_cpumask_map[node];
 }
 
+#ifdef CONFIG_HAVE_SETUP_PER_CPU_AREA
+unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+
 static int __init early_cpu_to_node(int cpu)
 {
 	return cpu_to_node_map[cpu];
@@ -158,13 +161,10 @@ void __init setup_per_cpu_areas(void)
 		panic("Failed to initialize percpu areas.");
 
 	delta = (unsigned long)pcpu_base_addr - (unsigned long)__per_cpu_start;
-	for_each_possible_cpu(cpu) {
+	for_each_possible_cpu(cpu)
 		__per_cpu_offset[cpu] = delta + pcpu_unit_offsets[cpu];
-		printk("sss 0x%llx\n", __per_cpu_offset[cpu]);
-	}
-		
-
 }
+#endif
 
 /**
  * numa_add_memblk - Set node id to memblk
