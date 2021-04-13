@@ -301,7 +301,6 @@ void *kmalloc_order(size_t size, gfp_t flags, unsigned int order)
 	void *ret;
 	struct page *page;
 
-	flags |= __GFP_COMP;
 	page = alloc_pages(flags, order);
 	ret = page ? page_address(page) : NULL;
 

@@ -84,12 +84,6 @@ static inline unsigned long get_num_physpages(void)
 	return phys_pages;
 }
 
-#if MAX_NUMNODES > 1
-void __init setup_nr_node_ids(void);
-#else
-static inline void setup_nr_node_ids(void) {}
-#endif
-
 extern atomic_long_t _totalram_pages;
 static inline unsigned long totalram_pages(void)
 {

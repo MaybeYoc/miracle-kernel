@@ -41,25 +41,31 @@ struct zone *next_zone(struct zone *zone)
 	return zone;
 }
 
-struct zone *first_populated_zoneidx(enum zone_type idx)
+static inline int zref_in_nodemask(struct zoneref *zref, nodemask_t *nodes)
 {
-	struct zone *zone;
-
-	for_each_zone(zone)
-		if (populated_zone(zone) && zone_idx(zone) == idx)
-			return zone;
-
-	return NULL;
+#ifdef CONFIG_NUMA
+	return nodemask_is_set(zonelist_node_idx(zref), nodes);
+#else
+	return 1;
+#endif /* CONFIG_NUMA */
 }
 
-struct zone *next_populated_zoneidx(struct zone *zone)
+/* Returns the next zone at or below highest_zoneidx in a zonelist */
+struct zoneref *__next_zones_zonelist(struct zoneref *z,
+					enum zone_type highest_zoneidx,
+					nodemask_t *nodes)
 {
-	enum zone_type idx = zone_idx(zone);
-	struct pglist_data *pgdat = zone->zone_pgdat;
+	/*
+	 * Find the next suitable zone to use for the allocation.
+	 * Only filter based on nodemask if it's set
+	 */
+	if (unlikely(nodes == NULL))
+		while (zonelist_zone_idx(z) > highest_zoneidx)
+			z++;
+	else
+		while (zonelist_zone_idx(z) > highest_zoneidx ||
+				(z->zone && !zref_in_nodemask(z, nodes)))
+			z++;
 
-	for (pgdat = next_online_pgdat(pgdat); pgdat; pgdat = next_online_pgdat(pgdat))
-		if (populated_zone(&pgdat->node_zones[idx]))
-			return &pgdat->node_zones[idx];
-	
-	return NULL;
+	return z;
 }

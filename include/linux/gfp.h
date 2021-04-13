@@ -12,24 +12,15 @@
 
 /* Plain integer GFP bitmasks. Do not use this directly. */
 #define ___GFP_DMA				BIT(0)
-#define ___GFP_DMA32			BIT(1)
-#define ___GFP_NORMAL			BIT(2)
-#define ___GFP_MOVABLE			BIT(3)
+#define ___GFP_NORMAL			BIT(1)
+#define ___GFP_MOVABLE			BIT(2)
 #define GFP_ZONE_SHIFT			(0)
 
-#define ___GFP_UNMOVABLE		BIT(4)
-#define ___GFP_MOVABLE2			BIT(5)
-#define ___GFP_RECLAIMABLE		BIT(6)
-#define GFP_MIGRATE_SHIFT		(4)
+#define ___GFP_ZERO				BIT(3)
+#define ___GFP_THISNODE			BIT(4)
+#define ___GFP_NOWARN			BIT(5)
 
-#define ___GFP_IO				BIT(7)
-#define ___GFP_FS				BIT(8)
-#define ___GFP_COMP				BIT(9)
-#define ___GFP_ZERO				BIT(10)
-#define ___GFP_THISNODE			BIT(11)
-#define ___GFP_NOWARN			BIT(12)
-
-#define ___GFP_BITS_SHIFT		13
+#define ___GFP_BITS_SHIFT		6
 
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
@@ -43,19 +34,10 @@
  * be used in bit comparisons.
  */
 #define __GFP_DMA	((__force gfp_t)___GFP_DMA)
-#define __GFP_DMA32	((__force gfp_t)___GFP_DMA32)
 #define __GFP_NORMAL	((__force gfp_t)___GFP_NORMAL)
-#define __GFP_MOVABLE	((__force gfp_t)___GFP_MOVABLE)  /* Page is movable */
-#define GFP_ZONEMASK	(__GFP_DMA|__GFP_DMA32|___GFP_NORMAL|__GFP_MOVABLE)
+#define __GFP_MOVABLE	((__force gfp_t)___GFP_MOVABLE)
+#define GFP_ZONEMASK	(__GFP_DMA|__GFP_NORMAL|__GFP_MOVABLE)
 
-#define __GFP_UNMOVABLE		((__force gfp_t)___GFP_UNMOVABLE)
-#define __GFP_MOVABLE2		((__force gfp_t)___GFP_MOVABLE2)
-#define __GFP_RECLAIMABLE	((__force gfp_t)___GFP_RECLAIMABLE)
-#define GFP_MIGRATE_MASK	(__GFP_UNMOVABLE | __GFP_MOVABLE2 | __GFP_RECLAIMABLE)
-
-#define __GFP_IO	((__force gfp_t)___GFP_IO)	/* Can start physical IO? */
-#define __GFP_FS	((__force gfp_t)___GFP_FS)	/* Can call down to low-level FS? */
-#define __GFP_COMP	((__force gfp_t)___GFP_COMP)	/* Add compound page metadata */
 #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)	/* Return zeroed page on success */
 #define __GFP_THISNODE	((__force gfp_t)___GFP_THISNODE)
 #define __GFP_NOWARN	((__force gfp_t)___GFP_NOWARN)
@@ -63,63 +45,43 @@
 #define __GFP_BITS_SHIFT ___GFP_BITS_SHIFT
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
-#define GFP_KERNEL	(__GFP_NORMAL | __GFP_UNMOVABLE | __GFP_FS)
-#define GFP_USER	(__GFP_NORMAL | __GFP_MOVABLE2 | __GFP_FS)
-#define GFP_TRANSHUGE	(__GFP_MOVABLE | __GFP_MOVABLE2 | __GFP_COMP)
+#define GFP_DMA		(__GFP_DMA)
+#define GFP_KERNEL	(__GFP_NORMAL)
+#define GFP_MOVABLE		(__GFP_MOVABLE)
 
-/* Flag - indicates that the buffer will be suitable for DMA.  Ignored on some
-   platforms, used as appropriate on others */
-
-#define GFP_DMA		__GFP_DMA
-
-/* 4GB DMA on some platforms */
-#define GFP_DMA32	__GFP_DMA32
-
-static inline int gfpflags_to_migratetype(const gfp_t gfp_flags)
-{
-	unsigned long flags;
-
-	VM_WARN_ON((gfp_flags & GFP_MIGRATE_MASK) == GFP_MIGRATE_MASK);
-
-	flags = (gfp_flags & GFP_MIGRATE_MASK) >> GFP_MIGRATE_SHIFT;
-
-	return find_first_bit(&flags, BITS_PER_LONG);
-}
-
-#define GFP_ZONES_SHIFT ZONES_SHIFT
-
-#if 16 * GFP_ZONES_SHIFT > BITS_PER_LONG
-#error GFP_ZONES_SHIFT too large to create GFP_ZONE_TABLE integer
-#endif
-
-#ifdef CONFIG_ZONE_DMA
-#define OPT_ZONE_DMA ZONE_DMA
-#else
-#define OPT_ZONE_DMA ZONE_NORMAL
-#endif
-
-#ifdef CONFIG_ZONE_DMA32
-#define OPT_ZONE_DMA32 ZONE_DMA32
-#else
-#define OPT_ZONE_DMA32 ZONE_NORMAL
-#endif
-
-#define GFP_ZONE_TABLE (	\
-		(OPT_ZONE_DMA << __GFP_DMA * GFP_ZONES_SHIFT)	\
-		| (OPT_ZONE_DMA32 << __GFP_DMA32 * GFP_ZONES_SHIFT)	\
-		| (ZONE_NORMAL << __GFP_NORMAL * GFP_ZONES_SHIFT)	\
-		| (ZONE_MOVABLE << __GFP_MOVABLE * GFP_ZONES_SHIFT)	\
-)
+#define GFP_USER	(GFP_KERNEL)
 
 static inline enum zone_type gfp_zone(gfp_t flags)
 {
-	enum zone_type z;
-	int bit = (__force int) (flags & GFP_ZONEMASK);
-
-	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
-					((1 << GFP_ZONES_SHIFT) - 1);
+	if (unlikely(__GFP_DMA & flags))
+		return ZONE_DMA;
+	if (unlikely(__GFP_MOVABLE & flags))
+		return ZONE_MOVABLE;
 	
-	return z;
+	return ZONE_NORMAL;
+}
+
+static inline int gfp_zonelist(gfp_t flags)
+{
+#ifdef CONFIG_NUMA
+	if (unlikely(flags & __GFP_THISNODE))
+		return ZONELIST_NOFALLBACK;
+#endif
+	return ZONELIST_FALLBACK;
+}
+
+/*
+ * We get the zone list from the current node and the gfp_mask.
+ * This zone list contains a maximum of MAXNODES*MAX_NR_ZONES zones.
+ * There are two zonelists per node, one for all zones with memory and
+ * one containing just zones from the node the zonelist belongs to.
+ *
+ * For the normal case of non-DISCONTIGMEM systems the NODE_DATA() gets
+ * optimized to &contig_page_data at compile-time.
+ */
+static inline struct zonelist *node_zonelist(int nid, gfp_t flags)
+{
+	return NODE_DATA(nid)->node_zonelists + gfp_zonelist(flags);
 }
 
 struct page *
@@ -153,7 +115,7 @@ static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 						unsigned int order)
 {
 	if (nid == NUMA_NO_NODE)
-		/* TODO */;
+		nid = 0;
 
 	return __alloc_pages_node(nid, gfp_mask, order);
 }

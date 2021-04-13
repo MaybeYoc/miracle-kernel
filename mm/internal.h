@@ -65,10 +65,10 @@ extern void memblock_free_pages(struct page *page, unsigned long pfn,
 					unsigned int order);
 
 struct alloc_context {
+	struct zonelist *zonelist;
 	nodemask_t *nodemask;
-	enum zone_type zoneidx;
-	struct zone *zone;
-	int migratetype;
+	struct zoneref *preferred_zoneref;
+	enum zone_type high_zoneidx;
 };
 
 #endif	/* __MM_INTERNAL_H */

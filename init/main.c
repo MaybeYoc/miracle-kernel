@@ -123,7 +123,7 @@ asmlinkage __visible void __init start_kernel(void)
 	setup_per_cpu_areas();
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
 
-	build_all_zonelists(NULL);
+	build_all_zonelists();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
 	parse_early_param();

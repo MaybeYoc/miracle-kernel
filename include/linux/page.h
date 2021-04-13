@@ -23,19 +23,16 @@
  */
 #define NODES_PGOFF		((sizeof(unsigned long)*8) - NODES_WIDTH)
 #define ZONES_PGOFF		(NODES_PGOFF - ZONES_WIDTH)
-#define MIGRATE_PGOFF	(ZONES_PGOFF - MIGRATE_WIDTH)
 
 #define NODES_PGSHIFT		(NODES_PGOFF * (NODES_WIDTH != 0))
 #define ZONES_PGSHIFT		(ZONES_PGOFF * (ZONES_WIDTH != 0))
-#define MIGRATE_PGSHIFT		(MIGRATE_PGOFF * (MIGRATE_WIDTH != 0))
 
-#if NODES_WIDTH+ZONES_WIDTH+MIGRATE_WIDTH > BITS_PER_LONG - NR_PAGEFLAGS
-#error NODES_WIDTH+ZONES_WIDTH+MIGRATE_WIDTH > BITS_PER_LONG - NR_PAGEFLAGS
+#if NODES_WIDTH+ZONES_WIDTH > BITS_PER_LONG - NR_PAGEFLAGS
+#error NODES_WIDTH+ZONES_WIDTH > BITS_PER_LONG - NR_PAGEFLAGS
 #endif
 
 #define ZONES_MASK		((1UL << ZONES_WIDTH) - 1)
 #define NODES_MASK		((1UL << NODES_WIDTH) - 1)
-#define MIGRATE_MASK		((1UL << MIGRATE_WIDTH) - 1)
 
 static inline void set_page_node(struct page *page, unsigned long node)
 {
@@ -50,24 +47,13 @@ static inline int page_to_nid(const struct page *page)
 
 static inline void set_page_zone(struct page *page, enum zone_type zone)
 {
-	page->flags &= ~(MIGRATE_PGSHIFT << MIGRATE_PGSHIFT);
-	page->flags |= (zone & ZONES_MASK) << MIGRATE_PGSHIFT;
+	page->flags &= ~(ZONES_MASK << ZONES_PGSHIFT);
+	page->flags |= (zone & ZONES_MASK) << ZONES_PGSHIFT;
 }
 
 static inline enum zone_type page_zonenum(const struct page *page)
 {
 	return (page->flags >> ZONES_PGSHIFT) & ZONES_MASK;
-}
-
-static inline void set_page_migrate(struct page *page, enum migratetype migrate)
-{
-	page->flags &= ~(MIGRATE_MASK << ZONES_PGSHIFT);
-	page->flags |= (migrate & MIGRATE_MASK) << ZONES_PGSHIFT;
-}
-
-static inline enum migratetype page_migratenum(const struct page *page)
-{
-	return (page->flags >> MIGRATE_PGSHIFT) & MIGRATE_MASK;
 }
 
 static inline void set_page_links(struct page *page, enum zone_type zone,
