@@ -153,7 +153,7 @@ static inline int cpumask_full(cpumask_t *srcp)
 	return bitmap_full(cpumask_bits(srcp), nr_cpumask_bits);
 }
 
-static inline int cpumask_weight(cpumask_t *srcp)
+static inline int cpumask_weight(const cpumask_t *srcp)
 {
 	return bitmap_weight(cpumask_bits(srcp), nr_cpumask_bits);
 }

@@ -45,9 +45,18 @@ struct thread_info {
 	mm_segment_t		addr_limit;	/* address limit */
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
-	//struct restart_block	restart_block; /* TODO */
-	int			preempt_count;	/* 0 => preemptable, <0 => bug */
-	int			cpu;		/* cpu */
+	union {
+		u64		preempt_count;	/* 0 => preemptible, <0 => bug */
+		struct {
+#ifdef CONFIG_CPU_BIG_ENDIAN
+			u32	need_resched;
+			u32	count;
+#else
+			u32	count;
+			u32	need_resched;
+#endif
+		} preempt;
+	};
 };
 
 #define INIT_THREAD_INFO(tsk)						\

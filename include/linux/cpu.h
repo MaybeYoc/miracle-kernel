@@ -22,6 +22,9 @@ struct cpu {
 	struct device dev;
 };
 
+/* Attach to any functions which should be considered cpuidle. */
+#define __cpuidle	__attribute__((__section__(".cpuidle.text")))
+
 extern void boot_cpu_init(void);
 
 #include <asm/cpu.h>

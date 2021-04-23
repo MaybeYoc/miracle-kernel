@@ -128,6 +128,20 @@
 		*(.spinlock.text)					\
 		__lock_text_end = .;
 
+/* sched.text is aling to function alignment to secure we have same
+ * address even at second ld pass when generating System.map */
+#define SCHED_TEXT							\
+		ALIGN_FUNCTION();					\
+		__sched_text_start = .;					\
+		*(.sched.text)						\
+		__sched_text_end = .;
+
+#define CPUIDLE_TEXT							\
+		ALIGN_FUNCTION();					\
+		__cpuidle_text_start = .;				\
+		*(.cpuidle.text)					\
+		__cpuidle_text_end = .;
+
 #define ENTRY_TEXT							\
 		ALIGN_FUNCTION();					\
 		__entry_text_start = .;					\

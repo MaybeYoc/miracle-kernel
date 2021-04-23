@@ -7,17 +7,13 @@
 
 static __always_inline int preempt_count(void)
 {
-	return current_thread_info()->preempt_count;
-}
-
-static __always_inline int *preempt_count_ptr(void)
-{
-	return &current_thread_info()->preempt_count;
+	return READ_ONCE(current_thread_info()->preempt.count);
 }
 
 static __always_inline void preempt_count_set(int pc)
 {
-	*preempt_count_ptr() = pc;
+	/* Preserve existing value of PREEMPT_NEED_RESCHED */
+	WRITE_ONCE(current_thread_info()->preempt.count, pc);
 }
 
 /*
@@ -36,15 +32,17 @@ static __always_inline void preempt_count_set(int pc)
 
 static __always_inline void set_preempt_need_resched(void)
 {
+	current_thread_info()->preempt.need_resched = 0;
 }
 
 static __always_inline void clear_preempt_need_resched(void)
 {
+	current_thread_info()->preempt.need_resched = 1;
 }
 
 static __always_inline bool test_preempt_need_resched(void)
 {
-	return false;
+	return !current_thread_info()->preempt.need_resched;
 }
 
 /*
@@ -53,22 +51,34 @@ static __always_inline bool test_preempt_need_resched(void)
 
 static __always_inline void __preempt_count_add(int val)
 {
-	*preempt_count_ptr() += val;
+	u32 pc = READ_ONCE(current_thread_info()->preempt.count);
+	pc += val;
+	WRITE_ONCE(current_thread_info()->preempt.count, pc);
 }
 
 static __always_inline void __preempt_count_sub(int val)
 {
-	*preempt_count_ptr() -= val;
+	u32 pc = READ_ONCE(current_thread_info()->preempt.count);
+	pc -= val;
+	WRITE_ONCE(current_thread_info()->preempt.count, pc);
 }
 
 static __always_inline bool __preempt_count_dec_and_test(void)
 {
+	struct thread_info *ti = current_thread_info();
+	u64 pc = READ_ONCE(ti->preempt_count);
+
+	/* Update only the count field, leaving need_resched unchanged */
+	WRITE_ONCE(ti->preempt.count, --pc);
+
 	/*
-	 * Because of load-store architectures cannot do per-cpu atomic
-	 * operations; we cannot use PREEMPT_NEED_RESCHED because it might get
-	 * lost.
+	 * If we wrote back all zeroes, then we're preemptible and in
+	 * need of a reschedule. Otherwise, we need to reload the
+	 * preempt_count in case the need_resched flag was cleared by an
+	 * interrupt occurring between the non-atomic READ_ONCE/WRITE_ONCE
+	 * pair.
 	 */
-	return !--*preempt_count_ptr() && tif_need_resched();
+	return !pc || !READ_ONCE(ti->preempt_count);
 }
 
 /*

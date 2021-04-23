@@ -33,4 +33,11 @@ static inline int wake_up_process(struct task_struct *p) { return 0; }
 
 static inline int sched_setscheduler_nocheck(struct task_struct *p, int policy,
 			       const struct sched_param *param) {return 0;}
+
+/* Attach to any functions which should be ignored in wchan output. */
+#define __sched		__attribute__((__section__(".sched.text")))
+
+/* Linker adds these: start and end of __sched functions */
+extern char __sched_text_start[], __sched_text_end[];
+
 #endif /* _LINUX_SCHED_TASK_H */

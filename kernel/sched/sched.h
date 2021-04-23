@@ -660,3 +660,19 @@ static inline long se_runnable(struct sched_entity *se)
 
 extern const int		sched_prio_to_weight[40];
 extern const u32		sched_prio_to_wmult[40];
+
+extern void resched_curr(struct rq *rq);
+
+static inline void put_prev_task(struct rq *rq, struct task_struct *prev)
+{
+	prev->sched_class->put_prev_task(rq, prev);
+}
+
+static inline void set_curr_task(struct rq *rq, struct task_struct *curr)
+{
+	curr->sched_class->set_curr_task(rq);
+}
+
+#ifdef CONFIG_SMP
+extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
+#endif
