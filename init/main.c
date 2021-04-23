@@ -28,6 +28,8 @@
 #include <linux/sched/task_stack.h>
 #include <linux/init_task.h>
 #include <linux/cpu.h>
+#include <linux/clockchips.h>
+#include <clocksource/arm_arch_timer.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -102,6 +104,16 @@ static void __init mm_init(void)
 	vmalloc_init();
 }
 
+unsigned long ticks = 0;
+/* TODO tmp */
+extern struct clock_event_device *test_clk;
+static void test_evt(struct clock_event_device * evt)
+{
+	jiffies++;
+	ticks = arch_timer_read_counter();
+	evt->set_next_event(1000, evt);
+}
+
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
@@ -150,6 +162,9 @@ asmlinkage __visible void __init start_kernel(void)
 	time_init();
 
 	local_irq_enable();
+
+	test_clk->event_handler = test_evt;
+	test_clk->set_next_event(1000, test_clk);
 
 	while(1);
 }

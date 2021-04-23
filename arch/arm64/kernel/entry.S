@@ -235,9 +235,9 @@ tsk	.req	x28		// current thread_info
 	.macro	irq_handler
 	ldr_l	x1, handle_arch_irq
 	mov	x0, sp
-	irq_stack_entry
+	//irq_stack_entry
 	blr	x1
-	irq_stack_exit
+	//irq_stack_exit
 	.endm
 
 	.text

@@ -40,9 +40,10 @@ __setup("irqaffinity=", irq_affinity_setup);
 
 static void __init init_irq_default_affinity(void)
 {
-//	if (!cpumask_available(irq_default_affinity))
-		//zalloc_cpumask_var(&irq_default_affinity, GFP_KERNEL);
-	if (cpumask_empty(irq_default_affinity))
+	irq_default_affinity = kzalloc(cpumask_size(), GFP_KERNEL);
+	//zalloc_cpumask_var(&irq_default_affinity, GFP_KERNEL);
+
+	//if (cpumask_empty(irq_default_affinity))
 		cpumask_setall_cpu(irq_default_affinity);
 }
 #else
@@ -72,7 +73,7 @@ static void desc_smp_init(struct irq_desc *desc, int node,
 {
 	if (!affinity)
 		affinity = irq_default_affinity;
-	cpumask_copy(desc->irq_common_data.affinity, affinity);
+//	cpumask_copy(desc->irq_common_data.affinity, affinity);
 
 	desc->irq_common_data.node = node;
 }
