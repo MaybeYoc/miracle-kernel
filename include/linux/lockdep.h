@@ -54,6 +54,14 @@ static inline void lockdep_on(void)
 # define lockdep_reset()		do { debug_locks = 1; } while (0)
 # define lockdep_free_key_range(start, size)	do { } while (0)
 # define lockdep_sys_exit() 			do { } while (0)
+
+struct pin_cookie { };
+
+#define NIL_COOKIE (struct pin_cookie){ }
+#define lockdep_pin_lock(l)			({ struct pin_cookie cookie; cookie; })
+#define lockdep_repin_lock(l, c)		do { (void)(l); (void)(c); } while (0)
+#define lockdep_unpin_lock(l, c)		do { (void)(l); (void)(c); } while (0)
+
 /*
  * The class key takes no space if lockdep is disabled:
  */

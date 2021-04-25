@@ -273,4 +273,9 @@ extern void enable_percpu_irq(unsigned int irq, unsigned int type);
 extern bool irq_percpu_is_enabled(unsigned int irq);
 extern void irq_wake_thread(unsigned int irq, void *dev_id);
 
+struct softirq_action
+{
+	void	(*action)(struct softirq_action *);
+};
+
 #endif

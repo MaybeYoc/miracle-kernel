@@ -88,8 +88,8 @@ again:
 	return next;
 }
 
-static inline unsigned int cpumask_next_and(int cpu, cpumask_t *src1p,
-		     cpumask_t *src2p)
+static inline unsigned int cpumask_next_and(int cpu, const cpumask_t *src1p,
+		    const cpumask_t *src2p)
 {
 	return find_next_and_bit(cpumask_bits(src1p), cpumask_bits(src2p),
 		nr_cpumask_bits, cpu + 1);
@@ -194,6 +194,114 @@ static inline unsigned int cpumask_size(void)
 	return BITS_TO_LONGS(nr_cpumask_bits) * sizeof(long);
 }
 
+/**
+ * cpumask_any - pick a "random" cpu from *srcp
+ * @srcp: the input cpumask
+ *
+ * Returns >= nr_possible_cpu_ids if no cpus set.
+ */
+#define cpumask_any(srcp) cpumask_first(srcp)
+
+/**
+ * cpumask_first_and - return the first cpu from *srcp1 & *srcp2
+ * @src1p: the first input
+ * @src2p: the second input
+ *
+ * Returns >= nr_possible_cpu_ids if no cpus set in both.  See also cpumask_next_and().
+ */
+#define cpumask_first_and(src1p, src2p) cpumask_next_and(-1, (src1p), (src2p))
+
+/**
+ * cpumask_any_and - pick a "random" cpu from *mask1 & *mask2
+ * @mask1: the first input cpumask
+ * @mask2: the second input cpumask
+ *
+ * Returns >= nr_possible_cpu_ids if no cpus set.
+ */
+#define cpumask_any_and(mask1, mask2) cpumask_first_and((mask1), (mask2))
+
+/**
+ * cpumask_of - the cpumask containing just a given cpu
+ * @cpu: the cpu (<= nr_possible_cpu_ids)
+ */
+#define cpumask_of(cpu) (get_cpu_mask(cpu))
+
+/**
+ * to_cpumask - convert an NR_CPUS bitmap to a struct cpumask *
+ * @bitmap: the bitmap
+ *
+ * There are a few places where cpumask_var_t isn't appropriate and
+ * static cpumasks must be used (eg. very early boot), yet we don't
+ * expose the definition of 'struct cpumask'.
+ *
+ * This does the conversion, and can be used as a constant initializer.
+ */
+#define to_cpumask(bitmap)						\
+	((struct cpumask *)(1 ? (bitmap)				\
+			    : (void *)sizeof(__check_is_bitmap(bitmap))))
+
+static inline int __check_is_bitmap(const unsigned long *bitmap)
+{
+	return 1;
+}
+
+/*
+ * Special-case data structure for "single bit set only" constant CPU masks.
+ *
+ * We pre-generate all the 64 (or 32) possible bit positions, with enough
+ * padding to the left and the right, and return the constant pointer
+ * appropriately offset.
+ */
+extern const unsigned long
+	cpu_bit_bitmap[BITS_PER_LONG+1][BITS_TO_LONGS(NR_CPUS)];
+
+static inline const struct cpumask *get_cpu_mask(unsigned int cpu)
+{
+	const unsigned long *p = cpu_bit_bitmap[1 + cpu % BITS_PER_LONG];
+	p -= cpu / BITS_PER_LONG;
+	return to_cpumask(p);
+}
+
+#define cpu_is_offline(cpu)	unlikely(!cpu_online(cpu))
+
+/**
+ * cpumask_complement - *dstp = ~*srcp
+ * @dstp: the cpumask result
+ * @srcp: the input to invert
+ */
+static inline void cpumask_complement(struct cpumask *dstp,
+				      const struct cpumask *srcp)
+{
+	bitmap_complement(cpumask_bits(dstp), cpumask_bits(srcp),
+					      nr_cpumask_bits);
+}
+
+/**
+ * cpumask_equal - *src1p == *src2p
+ * @src1p: the first input
+ * @src2p: the second input
+ */
+static inline bool cpumask_equal(const struct cpumask *src1p,
+				const struct cpumask *src2p)
+{
+	return bitmap_equal(cpumask_bits(src1p), cpumask_bits(src2p),
+						 nr_cpumask_bits);
+}
+
+/**
+ * cpumask_subset - (*src1p & ~*src2p) == 0
+ * @src1p: the first input
+ * @src2p: the second input
+ *
+ * Returns 1 if *@src1p is a subset of *@src2p, else returns 0
+ */
+static inline int cpumask_subset(const struct cpumask *src1p,
+				 const struct cpumask *src2p)
+{
+	return bitmap_subset(cpumask_bits(src1p), cpumask_bits(src2p),
+						  nr_cpumask_bits);
+}
+
 #if NR_CPUS <= BITS_PER_LONG
 #define CPU_BITS_ALL						\
 {								\
@@ -290,5 +398,11 @@ static inline void cpu_set_active(int cpu)
 #define cpu_possible(cpu)	cpumask_is_set((cpu), cpu_possible_mask)
 #define cpu_present(cpu)	cpumask_is_set((cpu), cpu_present_mask)
 #define cpu_active(cpu)		cpumask_is_set((cpu), cpu_active_mask)
+
+bool alloc_cpumask_var_node(cpumask_t **mask, gfp_t flags, int node);
+bool alloc_cpumask_var(cpumask_t **mask, gfp_t flags);
+bool zalloc_cpumask_var_node(cpumask_t **mask, gfp_t flags, int node);
+bool zalloc_cpumask_var(cpumask_t **mask, gfp_t flags);
+void free_cpumask_var(cpumask_t *mask);
 
 #endif /* __LINUX_CPUMASK_H */

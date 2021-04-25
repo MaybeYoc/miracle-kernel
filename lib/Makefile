@@ -15,6 +15,8 @@ obj-$(CONFIG_CRC32)	+= crc32.o
 lib-y := ctype.o string.o vsprintf.o int_sqrt.o cmdline.o	\
 		rbtree.o radix-tree.o xarray.o idr.o irq_regs.o plist.o
 
+lib-$(CONFIG_SMP) += cpumask.o
+
 ifneq ($(CONFIG_HAVE_DEC_LOCK),y)
 lib-y += dec_and_lock.o
 endif

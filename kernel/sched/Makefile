@@ -9,5 +9,7 @@ ifneq ($(CONFIG_SCHED_OMIT_FRAME_POINTER),y)
 CFLAGS_core.o := $(PROFILING) -fno-omit-frame-pointer
 endif
 
-obj-y := core.o
+obj-y := core.o clock.o
 obj-y += idle.o fair.o rt.o deadline.o
+
+obj-$(CONFIG_SMP) += pelt.o cpudeadline.o cpupri.o topology.o stop_task.o

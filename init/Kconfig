@@ -194,6 +194,10 @@ config DEFAULT_HOSTNAME
 source "kernel/irq/Kconfig"
 source "kernel/time/Kconfig"
 
+config HAVE_SCHED_AVG_IRQ
+	def_bool y
+	depends on SMP
+
 config PRINTK
 	default y
 	bool "Enable support for printk"

@@ -10,6 +10,8 @@
 #include <linux/llist.h>
 #include <linux/plist.h>
 #include <linux/types.h>
+#include <linux/hrtimer.h>
+#include <linux/cpuidle.h>
 //#include <linux/pid.h>
 #include <linux/sched/loadavg.h>
 #include <linux/sched/cpufreq.h>
@@ -251,7 +253,7 @@ struct load_weight {
 struct util_est {
 	unsigned int		enqueued;
 	unsigned int		ewma;
-#define UTIL_EST_WEIGHT_SHIFT
+#define UTIL_EST_WEIGHT_SHIFT		2
 } __attribute__((__aligned__(sizeof(u64))));
 
 /*
@@ -418,8 +420,7 @@ struct sched_dl_entity {
 	 * Bandwidth enforcement timer. Each -deadline task has its
 	 * own bandwidth to be enforced, thus we need one timer per task.
 	 */
-	/* TODO  */
-	//struct hrtimer			dl_timer;
+	struct hrtimer			dl_timer;
 
 	/*
 	 * Inactive timer, responsible for decreasing the active utilization
@@ -428,7 +429,7 @@ struct sched_dl_entity {
 	 * timer is needed to decrease the active utilization at the correct
 	 * time.
 	 */
-	//struct hrtimer inactive_timer;
+	struct hrtimer inactive_timer;
 };
 
 union rcu_special {
@@ -451,8 +452,6 @@ enum perf_event_task_context {
 struct wake_q_node {
 	struct wake_q_node *next;
 };
-
-
 
 struct task_struct {
 	/*
@@ -620,6 +619,9 @@ struct task_struct {
 	 */
 	char				comm[TASK_COMM_LEN];
 
+		/* Protection of the PI data structures: */
+	raw_spinlock_t			pi_lock;
+
 	struct wake_q_node		wake_q;
 
 	/* CPU-specific state of this task: */
@@ -724,6 +726,23 @@ static inline void clear_tsk_need_resched(struct task_struct *tsk)
 static inline int test_tsk_need_resched(struct task_struct *tsk)
 {
 	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
+}
+
+/*
+ * In order to reduce various lock holder preemption latencies provide an
+ * interface to see if a vCPU is currently running or not.
+ *
+ * This allows us to terminate optimistic spin loops and block, analogous to
+ * the native optimistic spin heuristic of testing if the lock owner task is
+ * running or not.
+ */
+#ifndef vcpu_is_preempted
+# define vcpu_is_preempted(cpu)	false
+#endif
+
+static __always_inline bool need_resched(void)
+{
+	return unlikely(tif_need_resched());
 }
 
 #endif
