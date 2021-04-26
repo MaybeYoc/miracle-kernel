@@ -4,6 +4,8 @@
 
 extern struct task_struct init_task;
 
+#define INIT_TASK_COMM "swapper"
+
 #define __init_task_data __attribute__((__section__(".data..init_task")))
 
 /* Attach to the thread_info data structure for proper alignment */

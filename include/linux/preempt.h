@@ -78,4 +78,11 @@ do { \
 #define in_nmi()		(0)
 #define in_task()		(0)
 
+#define PREEMPT_DISABLE_OFFSET	0
+/*
+ * Check whether we were atomic before we did preempt_disable():
+ * (used by the scheduler)
+ */
+#define in_atomic_preempt_off() (preempt_count() != PREEMPT_DISABLE_OFFSET)
+
 #endif /* __LINUX_PREEMPT_H */

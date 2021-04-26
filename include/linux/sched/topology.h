@@ -120,9 +120,13 @@ partition_sched_domains(int ndoms_new, cpumask_t *doms_new[],
 {
 }
 
+#ifdef CONFIG_SMP
+bool cpus_share_cache(int this_cpu, int that_cpu);
+#else
 static inline bool cpus_share_cache(int this_cpu, int that_cpu)
 {
 	return true;
 }
+#endif
 
 #endif /* _LINUX_SCHED_TOPOLOGY_H */

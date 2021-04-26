@@ -16,6 +16,7 @@
 #include <linux/sched/loadavg.h>
 #include <linux/sched/cpufreq.h>
 #include <uapi/linux/sched.h>
+#include <linux/prio.h>
 
 #include <asm/current.h>
 #include <asm/thread_info.h>
@@ -743,6 +744,28 @@ static inline int test_tsk_need_resched(struct task_struct *tsk)
 static __always_inline bool need_resched(void)
 {
 	return unlikely(tif_need_resched());
+}
+
+/**
+ * is_idle_task - is the specified task an idle task?
+ * @p: the task in question.
+ *
+ * Return: 1 if @p is an idle task. 0 otherwise.
+ */
+static inline bool is_idle_task(const struct task_struct *p)
+{
+	return !!(p->flags & PF_IDLE);
+}
+
+/**
+ * task_nice - return the nice value of a given task.
+ * @p: the task in question.
+ *
+ * Return: The nice value [ -20 ... 0 ... 19 ].
+ */
+static inline int task_nice(const struct task_struct *p)
+{
+	return PRIO_TO_NICE((p)->static_prio);
 }
 
 #endif

@@ -83,4 +83,7 @@ static inline int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int
     return -ENOSYS;
 }
 
+extern int sysctl_sched_rr_timeslice;
+extern int sched_rr_timeslice;
+
 #endif /* _LINUX_SCHED_SYSCTL_H */

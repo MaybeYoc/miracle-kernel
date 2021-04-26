@@ -115,7 +115,7 @@ static inline void cpumask_clearall_cpu(cpumask_t *dstp)
 	bitmap_zero(cpumask_bits(dstp), nr_cpumask_bits);
 }
 
-static inline int cpumask_is_set(int cpu, cpumask_t *srcp)
+static inline int cpumask_is_set(int cpu, const cpumask_t *srcp)
 {
 	return test_bit(cpu, cpumask_bits(srcp));
 }
@@ -168,7 +168,7 @@ static inline void cpumask_copy(cpumask_t *dstp,const cpumask_t *srcp)
  * @src1p: the first input
  * @src2p: the second input
  */
-static inline bool cpumask_intersects(cpumask_t *src1p, const cpumask_t *src2p)
+static inline bool cpumask_intersects(const cpumask_t *src1p, const cpumask_t *src2p)
 {
 	return bitmap_intersects(cpumask_bits(src1p), cpumask_bits(src2p),
 						      nr_cpumask_bits);
@@ -391,6 +391,12 @@ static inline void cpu_set_present(int cpu)
 static inline void cpu_set_active(int cpu)
 {
 	cpumask_set_cpu(cpu, cpu_active_mask);
+	nr_active_cpu_ids = cpumask_weight(cpu_active_mask);
+}
+
+static inline void cpu_clear_active(int cpu)
+{
+	cpumask_clear_cpu(cpu, cpu_active_mask);
 	nr_active_cpu_ids = cpumask_weight(cpu_active_mask);
 }
 

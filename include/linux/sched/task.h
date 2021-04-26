@@ -27,12 +27,11 @@ struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
 /* TODO */
 static inline int kthread_stop(struct task_struct *k) { return 0; }
 
-static inline int wake_up_process(struct task_struct *p) { return 0; }
+extern int wake_up_state(struct task_struct *tsk, unsigned int state);
+extern int wake_up_process(struct task_struct *tsk);
+extern void wake_up_new_task(struct task_struct *tsk);
 
 #define get_task_struct(tsk) do { atomic_inc(&(tsk)->usage); } while(0)
-
-static inline int sched_setscheduler_nocheck(struct task_struct *p, int policy,
-			       const struct sched_param *param) {return 0;}
 
 /* Attach to any functions which should be ignored in wchan output. */
 #define __sched		__attribute__((__section__(".sched.text")))

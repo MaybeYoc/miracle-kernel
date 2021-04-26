@@ -276,6 +276,8 @@ static inline u32 reciprocal_scale(u32 val, u32 ep_ro)
 	return (u32)(((u64) val * ep_ro) >> 32);
 }
 
+static inline void might_fault(void) { }
+
 __printf(1, 2)
 void panic(const char *fmt, ...) __noreturn __cold;
 
