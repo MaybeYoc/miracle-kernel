@@ -67,9 +67,4 @@ static inline void remove_wait_queue(struct wait_queue_head *wq_head, struct wai
 
 }
 
-static inline void schedule(void)
-{
-
-}
-
 #endif /* _LINUX_WAIT_H */

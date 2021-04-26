@@ -146,7 +146,7 @@ extern long schedule_timeout_interruptible(long timeout);
 extern long schedule_timeout_killable(long timeout);
 extern long schedule_timeout_uninterruptible(long timeout);
 extern long schedule_timeout_idle(long timeout);
-//asmlinkage void schedule(void);
+asmlinkage void schedule(void);
 extern void schedule_preempt_disabled(void);
 
 extern int __must_check io_schedule_prepare(void);
