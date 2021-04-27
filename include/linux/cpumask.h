@@ -360,6 +360,14 @@ static inline int cpumask_subset(const struct cpumask *src1p,
 		(cpu) = cpumask_next_and((cpu), (mask), (and)),		\
 		(cpu) < nr_possible_cpu_ids;)
 
+/* It's common to want to use cpu_all_mask in struct member initializers,
+ * so it has to refer to an address rather than a pointer. */
+extern const DECLARE_BITMAP(cpu_all_bits, NR_CPUS);
+#define cpu_all_mask to_cpumask(cpu_all_bits)
+
+/* First bits of cpu_bit_bitmap are in fact unset. */
+#define cpu_none_mask to_cpumask(cpu_bit_bitmap[0])
+
 #define for_each_possible_cpu(cpu) for_each_cpu_mask(cpu, cpu_possible_mask)
 #define for_each_online_cpu(cpu) for_each_cpu_mask(cpu, cpu_online_mask)
 #define for_each_present_cpu(cpu) for_each_cpu_mask(cpu, cpu_present_mask)

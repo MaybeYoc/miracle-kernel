@@ -327,7 +327,7 @@ static void __arch_timer_setup(unsigned type,
 			clk->features |= CLOCK_EVT_FEAT_C3STOP;
 		clk->name = "arch_sys_timer";
 		clk->rating = 450;
-		//clk->cpumask = cpumask_of(smp_processor_id());
+		clk->cpumask = cpumask_of(smp_processor_id());
 		clk->irq = arch_timer_ppi[arch_timer_uses_ppi];
 		switch (arch_timer_uses_ppi) {
 		case ARCH_TIMER_VIRT_PPI:

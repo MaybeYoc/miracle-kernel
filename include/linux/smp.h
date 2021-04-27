@@ -67,4 +67,7 @@ void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
 		smp_call_func_t func, void *info, bool wait,
 		gfp_t gfp_flags);
 
+int smp_call_function_single(int cpuid, smp_call_func_t func, void *info,
+			     int wait);
+
 #endif /* __LINUX_SMP_H */

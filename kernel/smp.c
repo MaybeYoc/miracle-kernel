@@ -51,3 +51,18 @@ void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
 			gfp_t gfp_flags)
 {
 }
+
+
+/*
+ * smp_call_function_single - Run a function on a specific CPU
+ * @func: The function to run. This must be fast and non-blocking.
+ * @info: An arbitrary pointer to pass to the function.
+ * @wait: If true, wait until function has completed on other CPUs.
+ *
+ * Returns 0 on success, else a negative status code.
+ */
+int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
+			     int wait)
+{
+	return 0;
+}
