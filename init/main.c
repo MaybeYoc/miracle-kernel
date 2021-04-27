@@ -30,6 +30,7 @@
 #include <linux/cpu.h>
 #include <linux/clockchips.h>
 #include <clocksource/arm_arch_timer.h>
+#include <linux/timekeeping.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -159,6 +160,7 @@ asmlinkage __visible void __init start_kernel(void)
 	early_irq_init();
 	init_IRQ();
 
+	timekeeping_init();
 	time_init();
 
 	local_irq_enable();

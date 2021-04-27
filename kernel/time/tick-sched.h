@@ -14,4 +14,6 @@ struct tick_device {
 	enum tick_device_mode mode;
 };
 
+extern void tick_setup_sched_timer(void);
+
 #endif

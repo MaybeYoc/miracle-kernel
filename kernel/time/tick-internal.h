@@ -1,5 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * tick internal variable and functions used by low/high res code
+ */
+#include <linux/hrtimer.h>
+#include <linux/percpu.h>
+#include <linux/clockchips.h>
 
+#include "timekeeping.h"
+#include "tick-sched.h"
 
 # define TICK_DO_TIMER_NONE	-1
 # define TICK_DO_TIMER_BOOT	-2
@@ -39,3 +47,21 @@ extern int tick_is_oneshot_available(void);
 extern struct tick_device *tick_get_device(int cpu);
 
 static inline int tick_oneshot_mode_active(void) { return 1; }
+
+static inline void tick_clock_notify(void) { }
+
+extern int tick_program_event(ktime_t expires, int force);
+
+extern void clockevents_shutdown(struct clock_event_device *dev);
+extern void clockevents_exchange_device(struct clock_event_device *old,
+					struct clock_event_device *new);
+extern void clockevents_switch_state(struct clock_event_device *dev,
+				     enum clock_event_state state);
+extern int clockevents_program_event(struct clock_event_device *dev,
+				     ktime_t expires, bool force);
+extern void clockevents_handle_noop(struct clock_event_device *dev);
+extern int __clockevents_update_freq(struct clock_event_device *dev, u32 freq);
+
+extern int tick_init_highres(void);
+
+extern int tick_check_oneshot_change(int allow_nohz);
