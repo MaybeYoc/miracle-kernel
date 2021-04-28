@@ -4,6 +4,8 @@
 
 #include <linux/errno.h>
 
+/* Included from linux/ktime.h */
+
 void timekeeping_init(void);
 extern int timekeeping_suspended;
 
@@ -233,5 +235,31 @@ struct system_counterval_t {
 	u64			cycles;
 	struct clocksource	*cs;
 };
+
+/*
+ * Get cross timestamp between system clock and device clock
+ */
+extern int get_device_system_crosststamp(
+			int (*get_time_fn)(ktime_t *device_time,
+				struct system_counterval_t *system_counterval,
+				void *ctx),
+			void *ctx,
+			struct system_time_snapshot *history,
+			struct system_device_crosststamp *xtstamp);
+
+/*
+ * Simultaneously snapshot realtime and monotonic raw clocks
+ */
+extern void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot);
+
+/*
+ * Persistent clock related interfaces
+ */
+extern int persistent_clock_is_local;
+
+extern void read_persistent_clock64(struct timespec64 *ts);
+void read_persistent_wall_and_boot_offset(struct timespec64 *wall_clock,
+					  struct timespec64 *boot_offset);
+extern int update_persistent_clock64(struct timespec64 now);
 
 #endif

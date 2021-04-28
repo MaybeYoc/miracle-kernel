@@ -22,6 +22,7 @@
 #include <asm/barrier.h>
 #include <asm/sysreg.h>
 
+#include <linux/preempt.h>
 #include <linux/bug.h>
 #include <linux/init.h>
 #include <linux/jump_label.h>

@@ -273,8 +273,7 @@ static inline ktime_t ms_to_ktime(u64 ms)
 	return ms * NSEC_PER_MSEC;
 }
 
-/* TODO */
-//# include <linux/timekeeping.h>
-//# include <linux/timekeeping32.h>
+# include <linux/timekeeping.h>
+# include <linux/timekeeping32.h>
 
 #endif
