@@ -507,23 +507,27 @@ struct timespec64 timespec64_add_safe(const struct timespec64 lhs,
 int get_timespec64(struct timespec64 *ts,
 		   const struct __kernel_timespec __user *uts)
 {
+	/* TODO copy_from_user */
 	return 0;
 }
 
 int put_timespec64(const struct timespec64 *ts,
 		   struct __kernel_timespec __user *uts)
 {
+	/* TODO copy_from_user */
 	return 0;
 }
 
 int get_itimerspec64(struct itimerspec64 *it,
 			const struct __kernel_itimerspec __user *uit)
 {
+	/* TODO copy_from_user */
 	return 0;
 }
 
 int put_itimerspec64(const struct itimerspec64 *it,
 			struct __kernel_itimerspec __user *uit)
 {
+	/* TODO copy_from_user */
 	return 0;
 }
