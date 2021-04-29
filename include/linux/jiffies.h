@@ -367,12 +367,9 @@ static __always_inline unsigned long msecs_to_jiffies(const unsigned int m)
 	if (__builtin_constant_p(m)) {
 		if ((int)m < 0)
 			return MAX_JIFFY_OFFSET;
-		return 0;
-		/* TODO */
-		//return _msecs_to_jiffies(m);
+		return _msecs_to_jiffies(m);
 	} else {
-		return 0;
-		//return __msecs_to_jiffies(m);
+		return __msecs_to_jiffies(m);
 	}
 }
 
