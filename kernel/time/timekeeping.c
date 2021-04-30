@@ -3,33 +3,13 @@
  *  Kernel timekeeping code and accessor functions. Based on code from
  *  timer.c, moved in commit 8524070b7982.
  */
-#include <linux/compiler.h>
-#include <linux/clocksource.h>
+#include <linux/bug.h>
+#include <linux/spinlock.h>
 #include <linux/ktime.h>
-#include <linux/seqlock.h>
-#include <linux/timex.h>
+#include <linux/clocksource.h>
 #include <linux/timekeeping.h>
-#include <linux/hrtimer.h>
-#include <linux/sched/clock.h>
-#include <linux/sched/loadavg.h>
-#include <linux/module.h>
 
-#include "timekeeper_internal.h"
 #include "timekeeping_internal.h"
-#include "tick-internal.h"
-#include "ntp_internal.h"
-
-#define TK_CLEAR_NTP		(1 << 0)
-#define TK_MIRROR		(1 << 1)
-#define TK_CLOCK_WAS_SET	(1 << 2)
-
-enum timekeeping_adv_mode {
-	/* Update timekeeper when a tick has passed */
-	TK_ADV_TICK,
-
-	/* Update timekeeper on a direct frequency change */
-	TK_ADV_FREQ
-};
 
 /*
  * The most important data for readout fits into a single 64 byte
@@ -43,102 +23,6 @@ static struct {
 };
 
 static DEFINE_RAW_SPINLOCK(timekeeper_lock);
-static struct timekeeper shadow_timekeeper;
-
-/**
- * struct tk_fast - NMI safe timekeeper
- * @seq:	Sequence counter for protecting updates. The lowest bit
- *		is the index for the tk_read_base array
- * @base:	tk_read_base array. Access is indexed by the lowest bit of
- *		@seq.
- *
- * See @update_fast_timekeeper() below.
- */
-struct tk_fast {
-	seqcount_t		seq;
-	struct tk_read_base	base[2];
-};
-
-/* Suspend-time cycles value for halted fast timekeeper. */
-static u64 cycles_at_suspend;
-
-static u64 dummy_clock_read(struct clocksource *cs)
-{
-	return cycles_at_suspend;
-}
-
-static struct clocksource dummy_clock = {
-	.read = dummy_clock_read,
-};
-
-static struct tk_fast tk_fast_mono ____cacheline_aligned = {
-	.base[0] = { .clock = &dummy_clock, },
-	.base[1] = { .clock = &dummy_clock, },
-};
-
-static struct tk_fast tk_fast_raw  ____cacheline_aligned = {
-	.base[0] = { .clock = &dummy_clock, },
-	.base[1] = { .clock = &dummy_clock, },
-};
-
-/* flag for if timekeeping is suspended */
-int __read_mostly timekeeping_suspended;
-
-static inline void tk_normalize_xtime(struct timekeeper *tk)
-{
-	while (tk->tkr_mono.xtime_nsec >= ((u64)NSEC_PER_SEC << tk->tkr_mono.shift)) {
-		tk->tkr_mono.xtime_nsec -= (u64)NSEC_PER_SEC << tk->tkr_mono.shift;
-		tk->xtime_sec++;
-	}
-	while (tk->tkr_raw.xtime_nsec >= ((u64)NSEC_PER_SEC << tk->tkr_raw.shift)) {
-		tk->tkr_raw.xtime_nsec -= (u64)NSEC_PER_SEC << tk->tkr_raw.shift;
-		tk->raw_sec++;
-	}
-}
-
-static inline struct timespec64 tk_xtime(const struct timekeeper *tk)
-{
-	struct timespec64 ts;
-
-	ts.tv_sec = tk->xtime_sec;
-	ts.tv_nsec = (long)(tk->tkr_mono.xtime_nsec >> tk->tkr_mono.shift);
-	return ts;
-}
-
-static void tk_set_xtime(struct timekeeper *tk, const struct timespec64 *ts)
-{
-	tk->xtime_sec = ts->tv_sec;
-	tk->tkr_mono.xtime_nsec = (u64)ts->tv_nsec << tk->tkr_mono.shift;
-}
-
-static void tk_xtime_add(struct timekeeper *tk, const struct timespec64 *ts)
-{
-	tk->xtime_sec += ts->tv_sec;
-	tk->tkr_mono.xtime_nsec += (u64)ts->tv_nsec << tk->tkr_mono.shift;
-	tk_normalize_xtime(tk);
-}
-
-static void tk_set_wall_to_mono(struct timekeeper *tk, struct timespec64 wtm)
-{
-	struct timespec64 tmp;
-
-	/*
-	 * Verify consistency of: offset_real = -wall_to_monotonic
-	 * before modifying anything
-	 */
-	set_normalized_timespec64(&tmp, -tk->wall_to_monotonic.tv_sec,
-					-tk->wall_to_monotonic.tv_nsec);
-	WARN_ON_ONCE(tk->offs_real != timespec64_to_ktime(tmp));
-	tk->wall_to_monotonic = wtm;
-	set_normalized_timespec64(&tmp, -wtm.tv_sec, -wtm.tv_nsec);
-	tk->offs_real = timespec64_to_ktime(tmp);
-	tk->offs_tai = ktime_add(tk->offs_real, ktime_set(tk->tai_offset, 0));
-}
-
-static inline void tk_update_sleep_time(struct timekeeper *tk, ktime_t delta)
-{
-	tk->offs_boot = ktime_add(tk->offs_boot, delta);
-}
 
 /*
  * tk_clock_read - atomic clocksource read() helper
@@ -160,10 +44,6 @@ static inline u64 tk_clock_read(const struct tk_read_base *tkr)
 	return clock->read(clock);
 }
 
-static inline void timekeeping_check_update(struct timekeeper *tk, u64 offset)
-{
-}
-
 static inline u64 timekeeping_get_delta(const struct tk_read_base *tkr)
 {
 	u64 cycle_now, delta;
@@ -175,6 +55,160 @@ static inline u64 timekeeping_get_delta(const struct tk_read_base *tkr)
 	delta = clocksource_delta(cycle_now, tkr->cycle_last, tkr->mask);
 
 	return delta;
+}
+
+static inline u64 timekeeping_delta_to_ns(const struct tk_read_base *tkr, u64 delta)
+{
+	u64 nsec;
+
+	nsec = delta * tkr->mult + tkr->ktime_nsec;
+	nsec >>= tkr->shift;
+
+	return nsec;
+}
+
+static inline u64 timekeeping_get_ns(const struct tk_read_base *tkr)
+{
+	u64 delta;
+
+	delta = timekeeping_get_delta(tkr);
+	return timekeeping_delta_to_ns(tkr, delta);
+}
+
+u32 ktime_get_resolution_ns(void)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+	unsigned int seq;
+	u32 nsecs;
+
+	do {
+		seq = read_seqcount_begin(&tk_core.seq);
+		nsecs = tk->tkr_mono.mult >> tk->tkr_mono.shift;
+	} while (read_seqcount_retry(&tk_core.seq, seq));
+
+	return nsecs;
+}
+
+/**
+ * timekeeping_max_deferment - Returns max time the clocksource can be deferred
+ */
+u64 timekeeping_max_deferment(void)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+	unsigned long seq;
+	u64 ret;
+
+	do {
+		seq = read_seqcount_begin(&tk_core.seq);
+
+		ret = tk->tkr_mono.clock->max_idle_ns;
+
+	} while (read_seqcount_retry(&tk_core.seq, seq));
+
+	return ret;
+}
+
+static ktime_t *offsets[TK_OFFS_MAX] = {
+	[TK_OFFS_MONO] = &tk_core.timekeeper.offs_mono,
+	[TK_OFFS_REAL] = &tk_core.timekeeper.offs_real,
+	[TK_OFFS_BOOT] = &tk_core.timekeeper.offs_boot,
+};
+
+static void ktime_get_ts64_with_offset(struct timespec64 *ts, enum tk_offsets offs)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+	unsigned long seq;
+	ktime_t *offset = offsets[offs];
+	u64 nsecs;
+
+	do {
+		seq = read_seqcount_begin(&tk_core.seq);
+
+		ts->tv_sec = tk->ktime_sec + *offset;
+		nsecs = timekeeping_get_ns(&tk->tkr_mono);
+
+	} while (read_seqcount_retry(&tk_core.seq, seq));
+
+	ts->tv_nsec = 0;
+	timespec64_add_ns(ts, nsecs);
+}
+
+static ktime_t ktime_get_with_offset(enum tk_offsets offs)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+	unsigned int seq;
+	ktime_t base, *offset = offsets[offs];
+	u64 nsecs;
+
+	do {
+		seq = read_seqcount_begin(&tk_core.seq);
+		base = ktime_add(ttk->ktime_sec, *offset);
+		nsecs = timekeeping_get_ns(&tk->tkr_mono);
+
+	} while (read_seqcount_retry(&tk_core.seq, seq));
+
+	return ktime_add_ns(base, nsecs);
+}
+
+static time64_t ktime_get_seconds_with_offset(enum tk_offsets offs)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+	unsigned int seq;
+	ktime_t *offset = offsets[offs];
+	time64_t seconds;
+
+	do {
+		seq = read_seqcount_begin(&tk_core.seq);
+		seconds = tk->ktime_sec + *offset;
+
+	} while (read_seqcount_retry(&tk_core.seq, seq));
+
+	return seconds;
+}
+
+void ktime_get_ts64(struct timespec64 *ts)
+{
+	ktime_get_ts64_with_offset(ts, TK_OFFS_MONO);
+}
+
+ktime_t ktime_get(void)
+{
+	return ktime_get_with_offset(TK_OFFS_MONO);
+}
+
+time64_t ktime_get_seconds(void)
+{
+	return ktime_get_seconds_with_offset(TK_OFFS_MONO);
+}
+
+void ktime_get_real_ts64(struct timespec64 *ts)
+{
+	ktime_get_ts64_with_offset(ts, TK_OFFS_REAL);
+}
+
+ktime_t ktime_get_real(void)
+{
+	return ktime_get_with_offset(TK_OFFS_REAL);
+}
+
+time64_t ktime_get_real_seconds(void)
+{
+	return ktime_get_seconds_with_offset(TK_OFFS_REAL);
+}
+
+void ktime_get_boot_ts64(struct timespec64 *ts)
+{
+	ktime_get_ts64_with_offset(ts, TK_OFFS_BOOT);
+}
+
+ktime_t ktime_get_boot(void)
+{
+	return ktime_get_with_offset(TK_OFFS_BOOT);
+}
+
+time64_t ktime_get_boot_seconds(void)
+{
+	return ktime_get_seconds_with_offset(TK_OFFS_BOOT);
 }
 
 /**
@@ -190,8 +224,6 @@ static inline u64 timekeeping_get_delta(const struct tk_read_base *tkr)
  */
 static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
 {
-	u64 interval;
-	u64 tmp, ntpinterval;
 	struct clocksource *old_clock;
 
 	++tk->cs_was_changed_seq;
@@ -200,45 +232,16 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
 	tk->tkr_mono.mask = clock->mask;
 	tk->tkr_mono.cycle_last = tk_clock_read(&tk->tkr_mono);
 
-	tk->tkr_raw.clock = clock;
-	tk->tkr_raw.mask = clock->mask;
-	tk->tkr_raw.cycle_last = tk->tkr_mono.cycle_last;
-
-	/* Do the ns -> cycle conversion first, using original mult */
-	tmp = NTP_INTERVAL_LENGTH;
-	tmp <<= clock->shift;
-	ntpinterval = tmp;
-	tmp += clock->mult/2;
-	do_div(tmp, clock->mult);
-	if (tmp == 0)
-		tmp = 1;
-
-	interval = (u64) tmp;
-	tk->cycle_interval = interval;
-
-	/* Go back from cycles -> shifted ns */
-	tk->xtime_interval = interval * clock->mult;
-	tk->xtime_remainder = ntpinterval - tk->xtime_interval;
-	tk->raw_interval = interval * clock->mult;
-
 	 /* if changing clocks, convert xtime_nsec shift units */
 	if (old_clock) {
 		int shift_change = clock->shift - old_clock->shift;
-		if (shift_change < 0) {
-			tk->tkr_mono.xtime_nsec >>= -shift_change;
-			tk->tkr_raw.xtime_nsec >>= -shift_change;
-		} else {
-			tk->tkr_mono.xtime_nsec <<= shift_change;
-			tk->tkr_raw.xtime_nsec <<= shift_change;
-		}
+		if (shift_change < 0)
+			tk->tkr_mono.ktime_nsec >>= -shift_change;
+		else
+			tk->tkr_mono.ktime_nsec <<= shift_change;
 	}
 
 	tk->tkr_mono.shift = clock->shift;
-	tk->tkr_raw.shift = clock->shift;
-
-	tk->ntp_error = 0;
-	tk->ntp_error_shift = NTP_SCALE_SHIFT - clock->shift;
-	tk->ntp_tick = ntpinterval << tk->ntp_error_shift;
 
 	/*
 	 * The timekeeper keeps its own mult values for the currently
@@ -247,294 +250,87 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
 	 */
 	tk->tkr_mono.mult = clock->mult;
 	tk->tkr_raw.mult = clock->mult;
-	tk->ntp_err_mult = 0;
-	tk->skip_second_overflow = 0;
-}
-
-static inline u32 arch_gettimeoffset(void) { return 0; }
-
-static inline u64 timekeeping_delta_to_ns(const struct tk_read_base *tkr, u64 delta)
-{
-	u64 nsec;
-
-	nsec = delta * tkr->mult + tkr->xtime_nsec;
-	nsec >>= tkr->shift;
-
-	/* If arch requires, add in get_arch_timeoffset() */
-	return nsec + arch_gettimeoffset();
-}
-
-static inline u64 timekeeping_get_ns(const struct tk_read_base *tkr)
-{
-	u64 delta;
-
-	delta = timekeeping_get_delta(tkr);
-	return timekeeping_delta_to_ns(tkr, delta);
-}
-
-static inline u64 timekeeping_cycles_to_ns(const struct tk_read_base *tkr, u64 cycles)
-{
-	u64 delta;
-
-	/* calculate the delta since the last update_wall_time */
-	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
-	return timekeeping_delta_to_ns(tkr, delta);
 }
 
 /**
- * update_fast_timekeeper - Update the fast and NMI safe monotonic timekeeper.
- * @tkr: Timekeeping readout base from which we take the update
+ * read_persistent_clock64 -  Return time from the persistent clock.
  *
- * We want to use this from any context including NMI and tracing /
- * instrumenting the timekeeping code itself.
+ * Weak dummy function for arches that do not yet support it.
+ * Reads the time from the battery backed persistent clock.
+ * Returns a timespec with tv_sec=0 and tv_nsec=0 if unsupported.
  *
- * Employ the latch technique; see @raw_write_seqcount_latch.
- *
- * So if a NMI hits the update of base[0] then it will use base[1]
- * which is still consistent. In the worst case this can result is a
- * slightly wrong timestamp (a few nanoseconds). See
- * @ktime_get_mono_fast_ns.
+ *  XXX - Do be sure to remove it once all arches implement it.
  */
-static void update_fast_timekeeper(const struct tk_read_base *tkr,
-				   struct tk_fast *tkf)
+void __weak read_persistent_clock64(struct timespec64 *ts)
 {
-	struct tk_read_base *base = tkf->base;
+	ts->tv_sec = 0;
+	ts->tv_nsec = 0;
+}
 
-	/* Force readers off to base[1] */
-	raw_write_seqcount_latch(&tkf->seq);
-
-	/* Update base[0] */
-	memcpy(base, tkr, sizeof(*base));
-
-	/* Force readers back to base[0] */
-	raw_write_seqcount_latch(&tkf->seq);
-
-	/* Update base[1] */
-	memcpy(base + 1, base, sizeof(*base));
+void __weak read_boot_clock64(struct timespec64 *ts)
+{
+	ts->tv_sec = 0;
+	ts->tv_nsec = 0;
 }
 
 /**
- * ktime_get_mono_fast_ns - Fast NMI safe access to clock monotonic
+ * read_persistent_wall_and_boot_offset - Read persistent clock, and also offset
+ *                                        from the boot.
  *
- * This timestamp is not guaranteed to be monotonic across an update.
- * The timestamp is calculated by:
- *
- *	now = base_mono + clock_delta * slope
- *
- * So if the update lowers the slope, readers who are forced to the
- * not yet updated second array are still using the old steeper slope.
- *
- * tmono
- * ^
- * |    o  n
- * |   o n
- * |  u
- * | o
- * |o
- * |12345678---> reader order
- *
- * o = old slope
- * u = update
- * n = new slope
- *
- * So reader 6 will observe time going backwards versus reader 5.
- *
- * While other CPUs are likely to be able observe that, the only way
- * for a CPU local observation is when an NMI hits in the middle of
- * the update. Timestamps taken from that NMI context might be ahead
- * of the following timestamps. Callers need to be aware of that and
- * deal with it.
+ * Weak dummy function for arches that do not yet support it.
+ * wall_time	- current time as returned by persistent clock
+ * boot_offset	- offset that is defined as wall_time - boot_time
+ * The default function calculates offset based on the current value of
+ * local_clock(). This way architectures that support sched_clock() but don't
+ * support dedicated boot time clock will provide the best estimate of the
+ * boot time.
  */
-static __always_inline u64 __ktime_get_fast_ns(struct tk_fast *tkf)
+void __weak __init
+read_persistent_wall_and_boot_offset(struct timespec64 *wall_time,
+				     struct timespec64 *boot_offset)
 {
-	struct tk_read_base *tkr;
-	unsigned int seq;
-	u64 now;
-
-	do {
-		seq = raw_read_seqcount_latch(&tkf->seq);
-		tkr = tkf->base + (seq & 0x01);
-		now = ktime_to_ns(tkr->base);
-
-		now += timekeeping_delta_to_ns(tkr,
-				clocksource_delta(
-					tk_clock_read(tkr),
-					tkr->cycle_last,
-					tkr->mask));
-	} while (read_seqcount_retry(&tkf->seq, seq));
-
-	return now;
+	read_persistent_clock64(wall_time);
+	read_boot_clock64(boot_offset);
 }
 
-u64 ktime_get_mono_fast_ns(void)
+static void tk_set_xtime(struct timekeeper *tk, const struct timespec64 *ts)
 {
-	return __ktime_get_fast_ns(&tk_fast_mono);
+	tk->xtime_sec = timespec64_to_ns(ts) - x
+	tk->tkr_mono.xtime_nsec = (u64)ts->tv_nsec << tk->tkr_mono.shift;
 }
 
-u64 ktime_get_raw_fast_ns(void)
-{
-	return __ktime_get_fast_ns(&tk_fast_raw);
-}
-
-/**
- * ktime_get_boot_fast_ns - NMI safe and fast access to boot clock.
- *
- * To keep it NMI safe since we're accessing from tracing, we're not using a
- * separate timekeeper with updates to monotonic clock and boot offset
- * protected with seqlocks. This has the following minor side effects:
- *
- * (1) Its possible that a timestamp be taken after the boot offset is updated
- * but before the timekeeper is updated. If this happens, the new boot offset
- * is added to the old timekeeping making the clock appear to update slightly
- * earlier:
- *    CPU 0                                        CPU 1
- *    timekeeping_inject_sleeptime64()
- *    __timekeeping_inject_sleeptime(tk, delta);
- *                                                 timestamp();
- *    timekeeping_update(tk, TK_CLEAR_NTP...);
- *
- * (2) On 32-bit systems, the 64-bit boot offset (tk->offs_boot) may be
- * partially updated.  Since the tk->offs_boot update is a rare event, this
- * should be a rare occurrence which postprocessing should be able to handle.
+/*
+ * timekeeping_init - Initializes the clocksource and common timekeeping values
  */
-u64 notrace ktime_get_boot_fast_ns(void)
+void __init timekeeping_init(void)
 {
+	struct timespec64 wall_time, boot_offset;
 	struct timekeeper *tk = &tk_core.timekeeper;
+	struct clocksource *clock;
+	unsigned long flags;
 
-	return (ktime_get_mono_fast_ns() + ktime_to_ns(tk->offs_boot));
+	read_persistent_wall_and_boot_offset(&wall_time, &boot_offset);
+	
+	raw_spin_lock_irqsave(&timekeeper_lock, flags);
+	write_seqcount_begin(&tk_core.seq);
+
+	clock = clocksource_default_clock();
+	if (clock->enable)
+		clock->enable(clock);
+	tk_setup_internals(tk, clock);
+
+	tk_set_xtime(tk, &wall_time);
+
+	write_seqcount_end(&tk_core.seq);
+	raw_spin_unlock_irqrestore(&timekeeper_lock, flags);
 }
 
-/*
- * See comment for __ktime_get_fast_ns() vs. timestamp ordering
- */
-static __always_inline u64 __ktime_get_real_fast_ns(struct tk_fast *tkf)
+static inline void tk_normalize_xtime(struct timekeeper *tk)
 {
-	struct tk_read_base *tkr;
-	unsigned int seq;
-	u64 now;
-
-	do {
-		seq = raw_read_seqcount_latch(&tkf->seq);
-		tkr = tkf->base + (seq & 0x01);
-		now = ktime_to_ns(tkr->base_real);
-
-		now += timekeeping_delta_to_ns(tkr,
-				clocksource_delta(
-					tk_clock_read(tkr),
-					tkr->cycle_last,
-					tkr->mask));
-	} while (read_seqcount_retry(&tkf->seq, seq));
-
-	return now;
-}
-
-/**
- * ktime_get_real_fast_ns: - NMI safe and fast access to clock realtime.
- */
-u64 ktime_get_real_fast_ns(void)
-{
-	return __ktime_get_real_fast_ns(&tk_fast_mono);
-}
-
-/**
- * halt_fast_timekeeper - Prevent fast timekeeper from accessing clocksource.
- * @tk: Timekeeper to snapshot.
- *
- * It generally is unsafe to access the clocksource after timekeeping has been
- * suspended, so take a snapshot of the readout base of @tk and use it as the
- * fast timekeeper's readout base while suspended.  It will return the same
- * number of cycles every time until timekeeping is resumed at which time the
- * proper readout base for the fast timekeeper will be restored automatically.
- */
-static void halt_fast_timekeeper(const struct timekeeper *tk)
-{
-	static struct tk_read_base tkr_dummy;
-	const struct tk_read_base *tkr = &tk->tkr_mono;
-
-	memcpy(&tkr_dummy, tkr, sizeof(tkr_dummy));
-	cycles_at_suspend = tk_clock_read(tkr);
-	tkr_dummy.clock = &dummy_clock;
-	tkr_dummy.base_real = tkr->base + tk->offs_real;
-	update_fast_timekeeper(&tkr_dummy, &tk_fast_mono);
-
-	tkr = &tk->tkr_raw;
-	memcpy(&tkr_dummy, tkr, sizeof(tkr_dummy));
-	tkr_dummy.clock = &dummy_clock;
-	update_fast_timekeeper(&tkr_dummy, &tk_fast_raw);
-}
-
-/*
- * tk_update_leap_state - helper to update the next_leap_ktime
- */
-static inline void tk_update_leap_state(struct timekeeper *tk)
-{
-	tk->next_leap_ktime = ntp_get_next_leap();
-	if (tk->next_leap_ktime != KTIME_MAX)
-		/* Convert to monotonic time */
-		tk->next_leap_ktime = ktime_sub(tk->next_leap_ktime, tk->offs_real);
-}
-
-/*
- * Update the ktime_t based scalar nsec members of the timekeeper
- */
-static inline void tk_update_ktime_data(struct timekeeper *tk)
-{
-	u64 seconds;
-	u32 nsec;
-
-	/*
-	 * The xtime based monotonic readout is:
-	 *	nsec = (xtime_sec + wtm_sec) * 1e9 + wtm_nsec + now();
-	 * The ktime based monotonic readout is:
-	 *	nsec = base_mono + now();
-	 * ==> base_mono = (xtime_sec + wtm_sec) * 1e9 + wtm_nsec
-	 */
-	seconds = (u64)(tk->xtime_sec + tk->wall_to_monotonic.tv_sec);
-	nsec = (u32) tk->wall_to_monotonic.tv_nsec;
-	tk->tkr_mono.base = ns_to_ktime(seconds * NSEC_PER_SEC + nsec);
-
-	/*
-	 * The sum of the nanoseconds portions of xtime and
-	 * wall_to_monotonic can be greater/equal one second. Take
-	 * this into account before updating tk->ktime_sec.
-	 */
-	nsec += (u32)(tk->tkr_mono.xtime_nsec >> tk->tkr_mono.shift);
-	if (nsec >= NSEC_PER_SEC)
-		seconds++;
-	tk->ktime_sec = seconds;
-
-	/* Update the monotonic raw base */
-	tk->tkr_raw.base = ns_to_ktime(tk->raw_sec * NSEC_PER_SEC);
-}
-
-/* must hold timekeeper_lock */
-static void timekeeping_update(struct timekeeper *tk, unsigned int action)
-{
-	if (action & TK_CLEAR_NTP) {
-		tk->ntp_error = 0;
-		ntp_clear();
+	while (tk->tkr_mono.ktime_nsec >= ((u64)NSEC_PER_SEC << tk->tkr_mono.shift)) {
+		tk->tkr_mono.ktime_nsec -= (u64)NSEC_PER_SEC << tk->tkr_mono.shift;
+		tk->ktime_sec++;
 	}
-
-	tk_update_leap_state(tk);
-	tk_update_ktime_data(tk);
-
-	update_vsyscall(tk);
-	//update_pvclock_gtod(tk, action & TK_CLOCK_WAS_SET);
-
-	tk->tkr_mono.base_real = tk->tkr_mono.base + tk->offs_real;
-	update_fast_timekeeper(&tk->tkr_mono, &tk_fast_mono);
-	update_fast_timekeeper(&tk->tkr_raw,  &tk_fast_raw);
-
-	if (action & TK_CLOCK_WAS_SET)
-		tk->clock_was_set_seq++;
-	/*
-	 * The mirroring of the data to the shadow-timekeeper needs
-	 * to happen last here to ensure we don't over-write the
-	 * timekeeper structure on the next update with stale data
-	 */
-	if (action & TK_MIRROR)
-		memcpy(&shadow_timekeeper, &tk_core.timekeeper,
-		       sizeof(tk_core.timekeeper));
 }
 
 /**
@@ -553,503 +349,9 @@ static void timekeeping_forward_now(struct timekeeper *tk)
 	tk->tkr_mono.cycle_last = cycle_now;
 	tk->tkr_raw.cycle_last  = cycle_now;
 
-	tk->tkr_mono.xtime_nsec += delta * tk->tkr_mono.mult;
-
-	/* If arch requires, add in get_arch_timeoffset() */
-	tk->tkr_mono.xtime_nsec += (u64)arch_gettimeoffset() << tk->tkr_mono.shift;
-
-
-	tk->tkr_raw.xtime_nsec += delta * tk->tkr_raw.mult;
-
-	/* If arch requires, add in get_arch_timeoffset() */
-	tk->tkr_raw.xtime_nsec += (u64)arch_gettimeoffset() << tk->tkr_raw.shift;
+	tk->tkr_mono.ktime_nsec += delta * tk->tkr_mono.mult;
 
 	tk_normalize_xtime(tk);
-}
-
-/**
- * ktime_get_real_ts64 - Returns the time of day in a timespec64.
- * @ts:		pointer to the timespec to be set
- *
- * Returns the time of day in a timespec64 (WARN if suspended).
- */
-void ktime_get_real_ts64(struct timespec64 *ts)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned long seq;
-	u64 nsecs;
-
-	WARN_ON(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-
-		ts->tv_sec = tk->xtime_sec;
-		nsecs = timekeeping_get_ns(&tk->tkr_mono);
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	ts->tv_nsec = 0;
-	timespec64_add_ns(ts, nsecs);
-}
-
-ktime_t ktime_get(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned int seq;
-	ktime_t base;
-	u64 nsecs;
-
-	WARN_ON(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		base = tk->tkr_mono.base;
-		nsecs = timekeeping_get_ns(&tk->tkr_mono);
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return ktime_add_ns(base, nsecs);
-}
-
-u32 ktime_get_resolution_ns(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned int seq;
-	u32 nsecs;
-
-	WARN_ON(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		nsecs = tk->tkr_mono.mult >> tk->tkr_mono.shift;
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return nsecs;
-}
-
-static ktime_t *offsets[TK_OFFS_MAX] = {
-	[TK_OFFS_REAL]	= &tk_core.timekeeper.offs_real,
-	[TK_OFFS_BOOT]	= &tk_core.timekeeper.offs_boot,
-	[TK_OFFS_TAI]	= &tk_core.timekeeper.offs_tai,
-};
-
-ktime_t ktime_get_with_offset(enum tk_offsets offs)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned int seq;
-	ktime_t base, *offset = offsets[offs];
-	u64 nsecs;
-
-	WARN_ON(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		base = ktime_add(tk->tkr_mono.base, *offset);
-		nsecs = timekeeping_get_ns(&tk->tkr_mono);
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return ktime_add_ns(base, nsecs);
-
-}
-
-ktime_t ktime_get_coarse_with_offset(enum tk_offsets offs)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned int seq;
-	ktime_t base, *offset = offsets[offs];
-
-	WARN_ON(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		base = ktime_add(tk->tkr_mono.base, *offset);
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return base;
-
-}
-
-/**
- * ktime_mono_to_any() - convert mononotic time to any other time
- * @tmono:	time to convert.
- * @offs:	which offset to use
- */
-ktime_t ktime_mono_to_any(ktime_t tmono, enum tk_offsets offs)
-{
-	ktime_t *offset = offsets[offs];
-	unsigned long seq;
-	ktime_t tconv;
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		tconv = ktime_add(tmono, *offset);
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return tconv;
-}
-
-/**
- * ktime_get_raw - Returns the raw monotonic time in ktime_t format
- */
-ktime_t ktime_get_raw(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned int seq;
-	ktime_t base;
-	u64 nsecs;
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		base = tk->tkr_raw.base;
-		nsecs = timekeeping_get_ns(&tk->tkr_raw);
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return ktime_add_ns(base, nsecs);
-}
-
-/**
- * ktime_get_ts64 - get the monotonic clock in timespec64 format
- * @ts:		pointer to timespec variable
- *
- * The function calculates the monotonic clock from the realtime
- * clock and the wall_to_monotonic offset and stores the result
- * in normalized timespec64 format in the variable pointed to by @ts.
- */
-void ktime_get_ts64(struct timespec64 *ts)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	struct timespec64 tomono;
-	unsigned int seq;
-	u64 nsec;
-
-	WARN_ON(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		ts->tv_sec = tk->xtime_sec;
-		nsec = timekeeping_get_ns(&tk->tkr_mono);
-		tomono = tk->wall_to_monotonic;
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	ts->tv_sec += tomono.tv_sec;
-	ts->tv_nsec = 0;
-	timespec64_add_ns(ts, nsec + tomono.tv_nsec);
-}
-
-/**
- * ktime_get_seconds - Get the seconds portion of CLOCK_MONOTONIC
- *
- * Returns the seconds portion of CLOCK_MONOTONIC with a single non
- * serialized read. tk->ktime_sec is of type 'unsigned long' so this
- * works on both 32 and 64 bit systems. On 32 bit systems the readout
- * covers ~136 years of uptime which should be enough to prevent
- * premature wrap arounds.
- */
-time64_t ktime_get_seconds(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-
-	WARN_ON(timekeeping_suspended);
-	return tk->ktime_sec;
-}
-
-/**
- * ktime_get_real_seconds - Get the seconds portion of CLOCK_REALTIME
- *
- * Returns the wall clock seconds since 1970. This replaces the
- * get_seconds() interface which is not y2038 safe on 32bit systems.
- *
- * For 64bit systems the fast access to tk->xtime_sec is preserved. On
- * 32bit systems the access must be protected with the sequence
- * counter to provide "atomic" access to the 64bit tk->xtime_sec
- * value.
- */
-time64_t ktime_get_real_seconds(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	time64_t seconds;
-	unsigned int seq;
-
-	if (IS_ENABLED(CONFIG_64BIT))
-		return tk->xtime_sec;
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		seconds = tk->xtime_sec;
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return seconds;
-}
-
-/**
- * __ktime_get_real_seconds - The same as ktime_get_real_seconds
- * but without the sequence counter protect. This internal function
- * is called just when timekeeping lock is already held.
- */
-time64_t __ktime_get_real_seconds(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-
-	return tk->xtime_sec;
-}
-
-/**
- * ktime_get_snapshot - snapshots the realtime/monotonic raw clocks with counter
- * @systime_snapshot:	pointer to struct receiving the system time snapshot
- */
-void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned long seq;
-	ktime_t base_raw;
-	ktime_t base_real;
-	u64 nsec_raw;
-	u64 nsec_real;
-	u64 now;
-
-	WARN_ON_ONCE(timekeeping_suspended);
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		now = tk_clock_read(&tk->tkr_mono);
-		systime_snapshot->cs_was_changed_seq = tk->cs_was_changed_seq;
-		systime_snapshot->clock_was_set_seq = tk->clock_was_set_seq;
-		base_real = ktime_add(tk->tkr_mono.base,
-				      tk_core.timekeeper.offs_real);
-		base_raw = tk->tkr_raw.base;
-		nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono, now);
-		nsec_raw  = timekeeping_cycles_to_ns(&tk->tkr_raw, now);
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	systime_snapshot->cycles = now;
-	systime_snapshot->real = ktime_add_ns(base_real, nsec_real);
-	systime_snapshot->raw = ktime_add_ns(base_raw, nsec_raw);
-}
-
-/* Scale base by mult/div checking for overflow */
-static int scale64_check_overflow(u64 mult, u64 div, u64 *base)
-{
-	u64 tmp, rem;
-
-	tmp = div64_u64_rem(*base, div, &rem);
-
-	if (((int)sizeof(u64)*8 - fls64(mult) < fls64(tmp)) ||
-	    ((int)sizeof(u64)*8 - fls64(mult) < fls64(rem)))
-		return -EOVERFLOW;
-	tmp *= mult;
-	rem *= mult;
-
-	do_div(rem, div);
-	*base = tmp + rem;
-	return 0;
-}
-
-/**
- * adjust_historical_crosststamp - adjust crosstimestamp previous to current interval
- * @history:			Snapshot representing start of history
- * @partial_history_cycles:	Cycle offset into history (fractional part)
- * @total_history_cycles:	Total history length in cycles
- * @discontinuity:		True indicates clock was set on history period
- * @ts:				Cross timestamp that should be adjusted using
- *	partial/total ratio
- *
- * Helper function used by get_device_system_crosststamp() to correct the
- * crosstimestamp corresponding to the start of the current interval to the
- * system counter value (timestamp point) provided by the driver. The
- * total_history_* quantities are the total history starting at the provided
- * reference point and ending at the start of the current interval. The cycle
- * count between the driver timestamp point and the start of the current
- * interval is partial_history_cycles.
- */
-static int adjust_historical_crosststamp(struct system_time_snapshot *history,
-					 u64 partial_history_cycles,
-					 u64 total_history_cycles,
-					 bool discontinuity,
-					 struct system_device_crosststamp *ts)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	u64 corr_raw, corr_real;
-	bool interp_forward;
-	int ret;
-
-	if (total_history_cycles == 0 || partial_history_cycles == 0)
-		return 0;
-
-	/* Interpolate shortest distance from beginning or end of history */
-	interp_forward = partial_history_cycles > total_history_cycles / 2;
-	partial_history_cycles = interp_forward ?
-		total_history_cycles - partial_history_cycles :
-		partial_history_cycles;
-
-	/*
-	 * Scale the monotonic raw time delta by:
-	 *	partial_history_cycles / total_history_cycles
-	 */
-	corr_raw = (u64)ktime_to_ns(
-		ktime_sub(ts->sys_monoraw, history->raw));
-	ret = scale64_check_overflow(partial_history_cycles,
-				     total_history_cycles, &corr_raw);
-	if (ret)
-		return ret;
-
-	/*
-	 * If there is a discontinuity in the history, scale monotonic raw
-	 *	correction by:
-	 *	mult(real)/mult(raw) yielding the realtime correction
-	 * Otherwise, calculate the realtime correction similar to monotonic
-	 *	raw calculation
-	 */
-	if (discontinuity) {
-		corr_real = mul_u64_u32_div
-			(corr_raw, tk->tkr_mono.mult, tk->tkr_raw.mult);
-	} else {
-		corr_real = (u64)ktime_to_ns(
-			ktime_sub(ts->sys_realtime, history->real));
-		ret = scale64_check_overflow(partial_history_cycles,
-					     total_history_cycles, &corr_real);
-		if (ret)
-			return ret;
-	}
-
-	/* Fixup monotonic raw and real time time values */
-	if (interp_forward) {
-		ts->sys_monoraw = ktime_add_ns(history->raw, corr_raw);
-		ts->sys_realtime = ktime_add_ns(history->real, corr_real);
-	} else {
-		ts->sys_monoraw = ktime_sub_ns(ts->sys_monoraw, corr_raw);
-		ts->sys_realtime = ktime_sub_ns(ts->sys_realtime, corr_real);
-	}
-
-	return 0;
-}
-
-/*
- * cycle_between - true if test occurs chronologically between before and after
- */
-static bool cycle_between(u64 before, u64 test, u64 after)
-{
-	if (test > before && test < after)
-		return true;
-	if (test < before && before > after)
-		return true;
-	return false;
-}
-
-/**
- * get_device_system_crosststamp - Synchronously capture system/device timestamp
- * @get_time_fn:	Callback to get simultaneous device time and
- *	system counter from the device driver
- * @ctx:		Context passed to get_time_fn()
- * @history_begin:	Historical reference point used to interpolate system
- *	time when counter provided by the driver is before the current interval
- * @xtstamp:		Receives simultaneously captured system and device time
- *
- * Reads a timestamp from a device and correlates it to system time
- */
-int get_device_system_crosststamp(int (*get_time_fn)
-				  (ktime_t *device_time,
-				   struct system_counterval_t *sys_counterval,
-				   void *ctx),
-				  void *ctx,
-				  struct system_time_snapshot *history_begin,
-				  struct system_device_crosststamp *xtstamp)
-{
-	struct system_counterval_t system_counterval;
-	struct timekeeper *tk = &tk_core.timekeeper;
-	u64 cycles, now, interval_start;
-	unsigned int clock_was_set_seq = 0;
-	ktime_t base_real, base_raw;
-	u64 nsec_real, nsec_raw;
-	u8 cs_was_changed_seq;
-	unsigned long seq;
-	bool do_interp;
-	int ret;
-
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
-		/*
-		 * Try to synchronously capture device time and a system
-		 * counter value calling back into the device driver
-		 */
-		ret = get_time_fn(&xtstamp->device, &system_counterval, ctx);
-		if (ret)
-			return ret;
-
-		/*
-		 * Verify that the clocksource associated with the captured
-		 * system counter value is the same as the currently installed
-		 * timekeeper clocksource
-		 */
-		if (tk->tkr_mono.clock != system_counterval.cs)
-			return -ENODEV;
-		cycles = system_counterval.cycles;
-
-		/*
-		 * Check whether the system counter value provided by the
-		 * device driver is on the current timekeeping interval.
-		 */
-		now = tk_clock_read(&tk->tkr_mono);
-		interval_start = tk->tkr_mono.cycle_last;
-		if (!cycle_between(interval_start, cycles, now)) {
-			clock_was_set_seq = tk->clock_was_set_seq;
-			cs_was_changed_seq = tk->cs_was_changed_seq;
-			cycles = interval_start;
-			do_interp = true;
-		} else {
-			do_interp = false;
-		}
-
-		base_real = ktime_add(tk->tkr_mono.base,
-				      tk_core.timekeeper.offs_real);
-		base_raw = tk->tkr_raw.base;
-
-		nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,
-						     system_counterval.cycles);
-		nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,
-						    system_counterval.cycles);
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
-	xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
-
-	/*
-	 * Interpolate if necessary, adjusting back from the start of the
-	 * current interval
-	 */
-	if (do_interp) {
-		u64 partial_history_cycles, total_history_cycles;
-		bool discontinuity;
-
-		/*
-		 * Check that the counter value occurs after the provided
-		 * history reference and that the history doesn't cross a
-		 * clocksource change
-		 */
-		if (!history_begin ||
-		    !cycle_between(history_begin->cycles,
-				   system_counterval.cycles, cycles) ||
-		    history_begin->cs_was_changed_seq != cs_was_changed_seq)
-			return -EINVAL;
-		partial_history_cycles = cycles - system_counterval.cycles;
-		total_history_cycles = cycles - history_begin->cycles;
-		discontinuity =
-			history_begin->clock_was_set_seq != clock_was_set_seq;
-
-		ret = adjust_historical_crosststamp(history_begin,
-						    partial_history_cycles,
-						    total_history_cycles,
-						    discontinuity, xtstamp);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
 }
 
 /**
@@ -1060,10 +362,12 @@ int get_device_system_crosststamp(int (*get_time_fn)
  */
 int do_settimeofday64(const struct timespec64 *ts)
 {
+	int ret = 0;
+	/*
 	struct timekeeper *tk = &tk_core.timekeeper;
 	struct timespec64 ts_delta, xt;
 	unsigned long flags;
-	int ret = 0;
+	
 
 	if (!timespec64_valid_strict(ts))
 		return -EINVAL;
@@ -1090,99 +394,11 @@ out:
 
 	write_seqcount_end(&tk_core.seq);
 	raw_spin_unlock_irqrestore(&timekeeper_lock, flags);
-
+*/
 	/* signal hrtimers about time change */
 	clock_was_set();
 
 	return ret;
-}
-
-/**
- * timekeeping_inject_offset - Adds or subtracts from the current time.
- * @tv:		pointer to the timespec variable containing the offset
- *
- * Adds or subtracts an offset value from the current time.
- */
-static int timekeeping_inject_offset(const struct timespec64 *ts)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned long flags;
-	struct timespec64 tmp;
-	int ret = 0;
-
-	if (ts->tv_nsec < 0 || ts->tv_nsec >= NSEC_PER_SEC)
-		return -EINVAL;
-
-	raw_spin_lock_irqsave(&timekeeper_lock, flags);
-	write_seqcount_begin(&tk_core.seq);
-
-	timekeeping_forward_now(tk);
-
-	/* Make sure the proposed value is valid */
-	tmp = timespec64_add(tk_xtime(tk), *ts);
-	if (timespec64_compare(&tk->wall_to_monotonic, ts) > 0 ||
-	    !timespec64_valid_strict(&tmp)) {
-		ret = -EINVAL;
-		goto error;
-	}
-
-	tk_xtime_add(tk, ts);
-	tk_set_wall_to_mono(tk, timespec64_sub(tk->wall_to_monotonic, *ts));
-
-error: /* even if we error out, we forwarded the time, so call update */
-	timekeeping_update(tk, TK_CLEAR_NTP | TK_MIRROR | TK_CLOCK_WAS_SET);
-
-	write_seqcount_end(&tk_core.seq);
-	raw_spin_unlock_irqrestore(&timekeeper_lock, flags);
-
-	/* signal hrtimers about time change */
-	clock_was_set();
-
-	return ret;
-}
-
-/*
- * Indicates if there is an offset between the system clock and the hardware
- * clock/persistent clock/rtc.
- */
-int persistent_clock_is_local;
-
-/*
- * Adjust the time obtained from the CMOS to be UTC time instead of
- * local time.
- *
- * This is ugly, but preferable to the alternatives.  Otherwise we
- * would either need to write a program to do it in /etc/rc (and risk
- * confusion if the program gets run more than once; it would also be
- * hard to make the program warp the clock precisely n hours)  or
- * compile in the timezone information into the kernel.  Bad, bad....
- *
- *						- TYT, 1992-01-01
- *
- * The best thing to do is to keep the CMOS clock in universal time (UTC)
- * as real UNIX machines always do it. This avoids all headaches about
- * daylight saving times and warping kernel clocks.
- */
-void timekeeping_warp_clock(void)
-{
-	if (sys_tz.tz_minuteswest != 0) {
-		struct timespec64 adjust;
-
-		persistent_clock_is_local = 1;
-		adjust.tv_sec = sys_tz.tz_minuteswest * 60;
-		adjust.tv_nsec = 0;
-		timekeeping_inject_offset(&adjust);
-	}
-}
-
-/**
- * __timekeeping_set_tai_offset - Sets the TAI offset from UTC and monotonic
- *
- */
-static void __timekeeping_set_tai_offset(struct timekeeper *tk, s32 tai_offset)
-{
-	tk->tai_offset = tai_offset;
-	tk->offs_tai = ktime_add(tk->offs_real, ktime_set(tai_offset, 0));
 }
 
 /**
@@ -1206,16 +422,11 @@ static int change_clocksource(void *data)
 	 * If the cs is in module, get a module reference. Succeeds
 	 * for built-in code (owner == NULL) as well.
 	 */
-	if (try_module_get(new->owner)) {
-		if (!new->enable || new->enable(new) == 0) {
-			old = tk->tkr_mono.clock;
-			tk_setup_internals(tk, new);
-			if (old->disable)
-				old->disable(old);
-			module_put(old->owner);
-		} else {
-			module_put(new->owner);
-		}
+	if (!new->enable || new->enable(new) == 0) {
+		old = tk->tkr_mono.clock;
+		tk_setup_internals(tk, new);
+		if (old->disable)
+			old->disable(old);
 	}
 	timekeeping_update(tk, TK_CLEAR_NTP | TK_MIRROR | TK_CLOCK_WAS_SET);
 
@@ -1244,7 +455,6 @@ int timekeeping_notify(struct clocksource *clock)
 	local_irq_save(flags);
 	change_clocksource(clock);
 	local_irq_restore(flags);
-	//stop_machine(change_clocksource, clock, NULL);
 	tick_clock_notify();
 	return tk->tkr_mono.clock == clock ? 0 : -1;
 }
@@ -1291,125 +501,8 @@ int timekeeping_valid_for_hres(void)
 	return ret;
 }
 
-/**
- * timekeeping_max_deferment - Returns max time the clocksource can be deferred
- */
-u64 timekeeping_max_deferment(void)
-{
-	struct timekeeper *tk = &tk_core.timekeeper;
-	unsigned long seq;
-	u64 ret;
 
-	do {
-		seq = read_seqcount_begin(&tk_core.seq);
 
-		ret = tk->tkr_mono.clock->max_idle_ns;
-
-	} while (read_seqcount_retry(&tk_core.seq, seq));
-
-	return ret;
-}
-
-/**
- * read_persistent_clock64 -  Return time from the persistent clock.
- *
- * Weak dummy function for arches that do not yet support it.
- * Reads the time from the battery backed persistent clock.
- * Returns a timespec with tv_sec=0 and tv_nsec=0 if unsupported.
- *
- *  XXX - Do be sure to remove it once all arches implement it.
- */
-void __weak read_persistent_clock64(struct timespec64 *ts)
-{
-	ts->tv_sec = 0;
-	ts->tv_nsec = 0;
-}
-
-/**
- * read_persistent_wall_and_boot_offset - Read persistent clock, and also offset
- *                                        from the boot.
- *
- * Weak dummy function for arches that do not yet support it.
- * wall_time	- current time as returned by persistent clock
- * boot_offset	- offset that is defined as wall_time - boot_time
- * The default function calculates offset based on the current value of
- * local_clock(). This way architectures that support sched_clock() but don't
- * support dedicated boot time clock will provide the best estimate of the
- * boot time.
- */
-void __weak __init
-read_persistent_wall_and_boot_offset(struct timespec64 *wall_time,
-				     struct timespec64 *boot_offset)
-{
-	read_persistent_clock64(wall_time);
-	*boot_offset = ns_to_timespec64(local_clock());
-}
-
-/*
- * Flag reflecting whether timekeeping_resume() has injected sleeptime.
- *
- * The flag starts of false and is only set when a suspend reaches
- * timekeeping_suspend(), timekeeping_resume() sets it to false when the
- * timekeeper clocksource is not stopping across suspend and has been
- * used to update sleep time. If the timekeeper clocksource has stopped
- * then the flag stays true and is used by the RTC resume code to decide
- * whether sleeptime must be injected and if so the flag gets false then.
- *
- * If a suspend fails before reaching timekeeping_resume() then the flag
- * stays false and prevents erroneous sleeptime injection.
- */
-static bool suspend_timing_needed;
-
-/* Flag for if there is a persistent clock on this platform */
-static bool persistent_clock_exists;
-
-/*
- * timekeeping_init - Initializes the clocksource and common timekeeping values
- */
-void __init timekeeping_init(void)
-{
-	struct timespec64 wall_time, boot_offset, wall_to_mono;
-	struct timekeeper *tk = &tk_core.timekeeper;
-	struct clocksource *clock;
-	unsigned long flags;
-
-	read_persistent_wall_and_boot_offset(&wall_time, &boot_offset);
-	if (timespec64_valid_strict(&wall_time) &&
-	    timespec64_to_ns(&wall_time) > 0) {
-		persistent_clock_exists = true;
-	} else if (timespec64_to_ns(&wall_time) != 0) {
-		pr_warn("Persistent clock returned invalid value");
-		wall_time = (struct timespec64){0};
-	}
-	
-	if (timespec64_compare(&wall_time, &boot_offset) < 0)
-		boot_offset = (struct timespec64){0};
-
-	/*
-	 * We want set wall_to_mono, so the following is true:
-	 * wall time + wall_to_mono = boot time
-	 */
-	wall_to_mono = timespec64_sub(boot_offset, wall_time);
-
-	raw_spin_lock_irqsave(&timekeeper_lock, flags);
-	write_seqcount_begin(&tk_core.seq);
-	//ntp_init();
-
-	clock = clocksource_default_clock();
-	if (clock->enable)
-		clock->enable(clock);
-	tk_setup_internals(tk, clock);
-
-	tk_set_xtime(tk, &wall_time);
-	tk->raw_sec = 0;
-
-	tk_set_wall_to_mono(tk, wall_to_mono);
-
-	timekeeping_update(tk, TK_MIRROR | TK_CLOCK_WAS_SET);
-
-	write_seqcount_end(&tk_core.seq);
-	raw_spin_unlock_irqrestore(&timekeeper_lock, flags);
-}
 
 /* time in seconds when suspend began for persistent clock */
 static struct timespec64 timekeeping_suspend_time;
@@ -1425,9 +518,9 @@ static void __timekeeping_inject_sleeptime(struct timekeeper *tk,
 					   const struct timespec64 *delta)
 {
 	if (!timespec64_valid_strict(delta)) {
-		//printk_deferred(KERN_WARNING
-		//		"__timekeeping_inject_sleeptime: Invalid "
-		//		"sleep delta value!\n");
+		printk(KERN_WARNING
+				"__timekeeping_inject_sleeptime: Invalid "
+				"sleep delta value!\n");
 		return;
 	}
 	tk_xtime_add(tk, delta);
@@ -1719,7 +812,7 @@ static inline unsigned int accumulate_nsecs_to_secs(struct timekeeper *tk)
 	while (tk->tkr_mono.xtime_nsec >= nsecps) {
 		int leap;
 
-		tk->tkr_mono.xtime_nsec -= nsecps;
+		tk->tkr_mono.ktime_nsec -= nsecps;
 		tk->xtime_sec++;
 
 		/*
@@ -1801,8 +894,7 @@ static u64 logarithmic_accumulation(struct timekeeper *tk, u64 offset,
  */
 static void timekeeping_advance(enum timekeeping_adv_mode mode)
 {
-	struct timekeeper *real_tk = &tk_core.timekeeper;
-	struct timekeeper *tk = &shadow_timekeeper;
+	struct timekeeper *tk = &tk_core.timekeeper;
 	u64 offset;
 	int shift = 0, maxshift;
 	unsigned int clock_set = 0;
@@ -1810,55 +902,8 @@ static void timekeeping_advance(enum timekeeping_adv_mode mode)
 
 	raw_spin_lock_irqsave(&timekeeper_lock, flags);
 
-	/* Make sure we're fully resumed: */
-	if (unlikely(timekeeping_suspended))
-		goto out;
-
-#ifdef CONFIG_ARCH_USES_GETTIMEOFFSET
-	offset = real_tk->cycle_interval;
-
-	if (mode != TK_ADV_TICK)
-		goto out;
-#else
 	offset = clocksource_delta(tk_clock_read(&tk->tkr_mono),
 				   tk->tkr_mono.cycle_last, tk->tkr_mono.mask);
-
-	/* Check if there's really nothing to do */
-	if (offset < real_tk->cycle_interval && mode == TK_ADV_TICK)
-		goto out;
-#endif
-
-	/* Do some additional sanity checking */
-	timekeeping_check_update(tk, offset);
-
-	/*
-	 * With NO_HZ we may have to accumulate many cycle_intervals
-	 * (think "ticks") worth of time at once. To do this efficiently,
-	 * we calculate the largest doubling multiple of cycle_intervals
-	 * that is smaller than the offset.  We then accumulate that
-	 * chunk in one go, and then try to consume the next smaller
-	 * doubled multiple.
-	 */
-	shift = ilog2(offset) - ilog2(tk->cycle_interval);
-	shift = max(0, shift);
-	/* Bound shift to one less than what overflows tick_length */
-	maxshift = (64 - (ilog2(ntp_tick_length())+1)) - 1;
-	shift = min(shift, maxshift);
-	while (offset >= tk->cycle_interval) {
-		offset = logarithmic_accumulation(tk, offset, shift,
-							&clock_set);
-		if (offset < tk->cycle_interval<<shift)
-			shift--;
-	}
-
-	/* Adjust the multiplier to correct NTP error */
-	timekeeping_adjust(tk, offset);
-
-	/*
-	 * Finally, make sure that after the rounding
-	 * xtime_nsec isn't larger than NSEC_PER_SEC
-	 */
-	clock_set |= accumulate_nsecs_to_secs(tk);
 
 	write_seqcount_begin(&tk_core.seq);
 	/*
@@ -1872,14 +917,10 @@ static void timekeeping_advance(enum timekeeping_adv_mode mode)
 	 * updating.
 	 */
 	timekeeping_update(tk, clock_set);
-	memcpy(real_tk, tk, sizeof(*tk));
-	/* The memcpy must come last. Do not put anything here! */
+
 	write_seqcount_end(&tk_core.seq);
-out:
+
 	raw_spin_unlock_irqrestore(&timekeeper_lock, flags);
-	if (clock_set)
-		/* Have to call _delayed version, since in irq context*/
-		clock_was_set_delayed();
 }
 
 /**
@@ -2063,6 +1104,7 @@ static int timekeeping_validate_timex(const struct timex *txc)
  */
 int do_adjtimex(struct timex *txc)
 {
+#if 0
 	struct timekeeper *tk = &tk_core.timekeeper;
 	unsigned long flags;
 	struct timespec64 ts;
@@ -2110,20 +1152,6 @@ int do_adjtimex(struct timex *txc)
 		clock_was_set();
 
 	ntp_notify_cmos_timer();
-
-	return ret;
-}
-
-/**
- * xtime_update() - advances the timekeeping infrastructure
- * @ticks:	number of ticks, that have elapsed since the last call.
- *
- * Must be called with interrupts disabled.
- */
-void xtime_update(unsigned long ticks)
-{
-	write_seqlock(&jiffies_lock);
-	do_timer(ticks);
-	write_sequnlock(&jiffies_lock);
-	update_wall_time();
+#endif
+	return 0;
 }

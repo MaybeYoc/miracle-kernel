@@ -9,18 +9,11 @@
 
 #include <linux/bug.h>
 #include <linux/mutex.h>
-#include <linux/ktime.h>
 #include <linux/list.h>
-#include <linux/spinlock.h>
-#include <linux/clockchips.h>
 #include <linux/clocksource.h>
-#include <linux/init.h>
-#include <linux/percpu.h>
 
-#include "timekeeping.h"
-#include "timekeeping_internal.h"
-#include "tick-sched.h"
 #include "tick-internal.h"
+#include "timekeeping_internal.h"
 
 /**
  * clocks_calc_mult_shift - calculate mult/shift factors for scaled math of clocks
@@ -89,162 +82,9 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
  *	Name of the user-specified clocksource.
  */
 static struct clocksource *curr_clocksource;
-static struct clocksource *suspend_clocksource;
 static LIST_HEAD(clocksource_list);
 static DEFINE_MUTEX(clocksource_mutex);
 static char override_name[CS_NAME_LEN];
-static int finished_booting;
-static u64 suspend_start;
-
-static void clocksource_enqueue_watchdog(struct clocksource *cs)
-{
-	if (cs->flags & CLOCK_SOURCE_IS_CONTINUOUS)
-		cs->flags |= CLOCK_SOURCE_VALID_FOR_HRES;
-}
-
-static void clocksource_select_watchdog(bool fallback) { }
-static inline void clocksource_dequeue_watchdog(struct clocksource *cs) { }
-static inline void clocksource_resume_watchdog(void) { }
-static inline int __clocksource_watchdog_kthread(void) { return 0; }
-static bool clocksource_is_watchdog(struct clocksource *cs) { return false; }
-void clocksource_mark_unstable(struct clocksource *cs) { }
-
-static inline void clocksource_watchdog_lock(unsigned long *flags) { }
-static inline void clocksource_watchdog_unlock(unsigned long *flags) { }
-
-static bool clocksource_is_suspend(struct clocksource *cs)
-{
-	return cs == suspend_clocksource;
-}
-
-static void __clocksource_suspend_select(struct clocksource *cs)
-{
-	/*
-	 * Skip the clocksource which will be stopped in suspend state.
-	 */
-	if (!(cs->flags & CLOCK_SOURCE_SUSPEND_NONSTOP))
-		return;
-
-	/*
-	 * The nonstop clocksource can be selected as the suspend clocksource to
-	 * calculate the suspend time, so it should not supply suspend/resume
-	 * interfaces to suspend the nonstop clocksource when system suspends.
-	 */
-	if (cs->suspend || cs->resume) {
-		pr_warn("Nonstop clocksource %s should not supply suspend/resume interfaces\n",
-			cs->name);
-	}
-
-	/* Pick the best rating. */
-	if (!suspend_clocksource || cs->rating > suspend_clocksource->rating)
-		suspend_clocksource = cs;
-}
-
-/**
- * clocksource_suspend_select - Select the best clocksource for suspend timing
- * @fallback:	if select a fallback clocksource
- */
-static void clocksource_suspend_select(bool fallback)
-{
-	struct clocksource *cs, *old_suspend;
-
-	old_suspend = suspend_clocksource;
-	if (fallback)
-		suspend_clocksource = NULL;
-
-	list_for_each_entry(cs, &clocksource_list, list) {
-		/* Skip current if we were requested for a fallback. */
-		if (fallback && cs == old_suspend)
-			continue;
-
-		__clocksource_suspend_select(cs);
-	}
-}
-
-/**
- * clocksource_start_suspend_timing - Start measuring the suspend timing
- * @cs:			current clocksource from timekeeping
- * @start_cycles:	current cycles from timekeeping
- *
- * This function will save the start cycle values of suspend timer to calculate
- * the suspend time when resuming system.
- *
- * This function is called late in the suspend process from timekeeping_suspend(),
- * that means processes are freezed, non-boot cpus and interrupts are disabled
- * now. It is therefore possible to start the suspend timer without taking the
- * clocksource mutex.
- */
-void clocksource_start_suspend_timing(struct clocksource *cs, u64 start_cycles)
-{
-	if (!suspend_clocksource)
-		return;
-
-	/*
-	 * If current clocksource is the suspend timer, we should use the
-	 * tkr_mono.cycle_last value as suspend_start to avoid same reading
-	 * from suspend timer.
-	 */
-	if (clocksource_is_suspend(cs)) {
-		suspend_start = start_cycles;
-		return;
-	}
-
-	if (suspend_clocksource->enable &&
-	    suspend_clocksource->enable(suspend_clocksource)) {
-		pr_warn_once("Failed to enable the non-suspend-able clocksource.\n");
-		return;
-	}
-
-	suspend_start = suspend_clocksource->read(suspend_clocksource);
-}
-
-/**
- * clocksource_stop_suspend_timing - Stop measuring the suspend timing
- * @cs:		current clocksource from timekeeping
- * @cycle_now:	current cycles from timekeeping
- *
- * This function will calculate the suspend time from suspend timer.
- *
- * Returns nanoseconds since suspend started, 0 if no usable suspend clocksource.
- *
- * This function is called early in the resume process from timekeeping_resume(),
- * that means there is only one cpu, no processes are running and the interrupts
- * are disabled. It is therefore possible to stop the suspend timer without
- * taking the clocksource mutex.
- */
-u64 clocksource_stop_suspend_timing(struct clocksource *cs, u64 cycle_now)
-{
-	u64 now, delta, nsec = 0;
-
-	if (!suspend_clocksource)
-		return 0;
-
-	/*
-	 * If current clocksource is the suspend timer, we should use the
-	 * tkr_mono.cycle_last value from timekeeping as current cycle to
-	 * avoid same reading from suspend timer.
-	 */
-	if (clocksource_is_suspend(cs))
-		now = cycle_now;
-	else
-		now = suspend_clocksource->read(suspend_clocksource);
-
-	if (now > suspend_start) {
-		delta = clocksource_delta(now, suspend_start,
-					  suspend_clocksource->mask);
-		nsec = mul_u64_u32_shr(delta, suspend_clocksource->mult,
-				       suspend_clocksource->shift);
-	}
-
-	/*
-	 * Disable the suspend timer to save power if current clocksource is
-	 * not the suspend timer.
-	 */
-	if (!clocksource_is_suspend(cs) && suspend_clocksource->disable)
-		suspend_clocksource->disable(suspend_clocksource);
-
-	return nsec;
-}
 
 /**
  * clocksource_suspend - suspend the clocksource(s)
@@ -268,20 +108,6 @@ void clocksource_resume(void)
 	list_for_each_entry(cs, &clocksource_list, list)
 		if (cs->resume)
 			cs->resume(cs);
-
-	clocksource_resume_watchdog();
-}
-
-/**
- * clocksource_touch_watchdog - Update watchdog
- *
- * Update the watchdog after exception contexts such as kgdb so as not
- * to incorrectly trip the watchdog. This might fail when the kernel
- * was stopped in code which holds watchdog_lock.
- */
-void clocksource_touch_watchdog(void)
-{
-	clocksource_resume_watchdog();
 }
 
 /**
@@ -296,7 +122,8 @@ static u32 clocksource_max_adjustment(struct clocksource *cs)
 	 * We won't try to correct for more than 11% adjustments (110,000 ppm),
 	 */
 	ret = (u64)cs->mult * 11;
-	do_div(ret,100);
+	do_div(ret, 100);
+
 	return (u32)ret;
 }
 
@@ -324,7 +151,7 @@ u64 clocks_calc_max_nsecs(u32 mult, u32 shift, u32 maxadj, u64 mask, u64 *max_cy
 	 * cyc2ns() function without overflowing a 64-bit result.
 	 */
 	max_cycles = ULLONG_MAX;
-	do_div(max_cycles, mult+maxadj);
+	do_div(max_cycles, mult + maxadj);
 
 	/*
 	 * The actual maximum number of cycles we can defer the clocksource is
@@ -360,7 +187,7 @@ static struct clocksource *clocksource_find_best(bool oneshot, bool skipcur)
 {
 	struct clocksource *cs;
 
-	if (!finished_booting || list_empty(&clocksource_list))
+	if (list_empty(&clocksource_list))
 		return NULL;
 
 	/*
@@ -458,13 +285,10 @@ static int __init clocksource_done_booting(void)
 {
 	mutex_lock(&clocksource_mutex);
 	curr_clocksource = clocksource_default_clock();
-	finished_booting = 1;
-	/*
-	 * Run the watchdog first to eliminate unstable clock sources
-	 */
-	__clocksource_watchdog_kthread();
+
 	clocksource_select();
 	mutex_unlock(&clocksource_mutex);
+
 	return 0;
 }
 fs_initcall(clocksource_done_booting);
@@ -553,6 +377,10 @@ void __clocksource_update_freq_scale(struct clocksource *cs, u32 scale, u32 freq
 		cs->name, cs->mask, cs->max_cycles, cs->max_idle_ns);
 }
 
+void __weak clocksource_arch_init(struct clocksource *cs)
+{
+}
+
 /**
  * __clocksource_register_scale - Used to install new clocksources
  * @cs:		clocksource to be registered
@@ -566,8 +394,6 @@ void __clocksource_update_freq_scale(struct clocksource *cs, u32 scale, u32 freq
  */
 int __clocksource_register_scale(struct clocksource *cs, u32 scale, u32 freq)
 {
-	unsigned long flags;
-
 	clocksource_arch_init(cs);
 
 	/* Initialize mult/shift and max_idle_ns */
@@ -575,15 +401,8 @@ int __clocksource_register_scale(struct clocksource *cs, u32 scale, u32 freq)
 
 	/* Add clocksource to the clocksource list */
 	mutex_lock(&clocksource_mutex);
-
-	clocksource_watchdog_lock(&flags);
 	clocksource_enqueue(cs);
-	clocksource_enqueue_watchdog(cs);
-	clocksource_watchdog_unlock(&flags);
-
 	clocksource_select();
-	clocksource_select_watchdog(false);
-	__clocksource_suspend_select(cs);
 	mutex_unlock(&clocksource_mutex);
 
 	return 0;
@@ -603,16 +422,9 @@ static void __clocksource_change_rating(struct clocksource *cs, int rating)
  */
 void clocksource_change_rating(struct clocksource *cs, int rating)
 {
-	unsigned long flags;
-
 	mutex_lock(&clocksource_mutex);
-	clocksource_watchdog_lock(&flags);
 	__clocksource_change_rating(cs, rating);
-	clocksource_watchdog_unlock(&flags);
-
 	clocksource_select();
-	clocksource_select_watchdog(false);
-	clocksource_suspend_select(false);
 	mutex_unlock(&clocksource_mutex);
 }
 
@@ -621,15 +433,6 @@ void clocksource_change_rating(struct clocksource *cs, int rating)
  */
 static int clocksource_unbind(struct clocksource *cs)
 {
-	unsigned long flags;
-
-	if (clocksource_is_watchdog(cs)) {
-		/* Select and try to install a replacement watchdog. */
-		clocksource_select_watchdog(true);
-		if (clocksource_is_watchdog(cs))
-			return -EBUSY;
-	}
-
 	if (cs == curr_clocksource) {
 		/* Select and try to install a replacement clock source */
 		clocksource_select_fallback();
@@ -637,19 +440,7 @@ static int clocksource_unbind(struct clocksource *cs)
 			return -EBUSY;
 	}
 
-	if (clocksource_is_suspend(cs)) {
-		/*
-		 * Select and try to install a replacement suspend clocksource.
-		 * If no replacement suspend clocksource, we will just let the
-		 * clocksource go and have no suspend clocksource.
-		 */
-		clocksource_suspend_select(true);
-	}
-
-	clocksource_watchdog_lock(&flags);
-	clocksource_dequeue_watchdog(cs);
 	list_del_init(&cs->list);
-	clocksource_watchdog_unlock(&flags);
 
 	return 0;
 }
@@ -666,6 +457,7 @@ int clocksource_unregister(struct clocksource *cs)
 	if (!list_empty(&cs->list))
 		ret = clocksource_unbind(cs);
 	mutex_unlock(&clocksource_mutex);
+
 	return ret;
 }
 

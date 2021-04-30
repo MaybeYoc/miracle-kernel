@@ -83,7 +83,6 @@ struct clocksource {
 	void (*resume)(struct clocksource *cs);
 	void (*mark_unstable)(struct clocksource *cs);
 	void (*tick_stable)(struct clocksource *cs);
-	struct module *owner;
 };
 
 /*
@@ -163,21 +162,25 @@ static inline s64 clocksource_cyc2ns(u64 cycles, u32 mult, u32 shift)
 	return ((u64) cycles * mult) >> shift;
 }
 
-extern int clocksource_unregister(struct clocksource*);
-extern void clocksource_touch_watchdog(void);
-extern void clocksource_change_rating(struct clocksource *cs, int rating);
+extern void
+clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 minsec);
+
 extern void clocksource_suspend(void);
 extern void clocksource_resume(void);
-extern struct clocksource * __init clocksource_default_clock(void);
-extern void clocksource_mark_unstable(struct clocksource *cs);
-extern void
-clocksource_start_suspend_timing(struct clocksource *cs, u64 start_cycles);
-extern u64 clocksource_stop_suspend_timing(struct clocksource *cs, u64 now);
 
 extern u64
 clocks_calc_max_nsecs(u32 mult, u32 shift, u32 maxadj, u64 mask, u64 *max_cycles);
+
 extern void
-clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 minsec);
+__clocksource_update_freq_scale(struct clocksource *cs, u32 scale, u32 freq);
+static inline void __clocksource_update_freq_hz(struct clocksource *cs, u32 hz)
+{
+	__clocksource_update_freq_scale(cs, 1, hz);
+}
+static inline void __clocksource_update_freq_khz(struct clocksource *cs, u32 khz)
+{
+	__clocksource_update_freq_scale(cs, 1000, khz);
+}
 
 /*
  * Don't call __clocksource_register_scale directly, use
@@ -185,9 +188,6 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 minsec);
  */
 extern int
 __clocksource_register_scale(struct clocksource *cs, u32 scale, u32 freq);
-extern void
-__clocksource_update_freq_scale(struct clocksource *cs, u32 scale, u32 freq);
-
 /*
  * Don't call this unless you are a default clocksource
  * (AKA: jiffies) and absolutely have to.
@@ -196,44 +196,22 @@ static inline int __clocksource_register(struct clocksource *cs)
 {
 	return __clocksource_register_scale(cs, 1, 0);
 }
-
 static inline int clocksource_register_hz(struct clocksource *cs, u32 hz)
 {
 	return __clocksource_register_scale(cs, 1, hz);
 }
-
 static inline int clocksource_register_khz(struct clocksource *cs, u32 khz)
 {
 	return __clocksource_register_scale(cs, 1000, khz);
 }
 
-static inline void __clocksource_update_freq_hz(struct clocksource *cs, u32 hz)
-{
-	__clocksource_update_freq_scale(cs, 1, hz);
-}
+extern void clocksource_change_rating(struct clocksource *cs, int rating);
 
-static inline void __clocksource_update_freq_khz(struct clocksource *cs, u32 khz)
-{
-	__clocksource_update_freq_scale(cs, 1000, khz);
-}
+extern int clocksource_unregister(struct clocksource*);
 
-#ifdef CONFIG_ARCH_CLOCKSOURCE_INIT
+extern struct clocksource * __init clocksource_default_clock(void);
+
 extern void clocksource_arch_init(struct clocksource *cs);
-#else
-static inline void clocksource_arch_init(struct clocksource *cs) { }
-#endif
-
-extern int timekeeping_notify(struct clocksource *clock);
-
-extern u64 clocksource_mmio_readl_up(struct clocksource *);
-extern u64 clocksource_mmio_readl_down(struct clocksource *);
-extern u64 clocksource_mmio_readw_up(struct clocksource *);
-extern u64 clocksource_mmio_readw_down(struct clocksource *);
-
-extern int clocksource_mmio_init(void __iomem *, const char *,
-	unsigned long, int, unsigned, u64 (*)(struct clocksource *));
-
-extern int clocksource_i8253_init(void);
 
 #define TIMER_OF_DECLARE(name, compat, fn) \
 	OF_DECLARE_1_RET(timer, name, compat, fn)
@@ -243,8 +221,5 @@ extern void timer_probe(void);
 #else
 static inline void timer_probe(void) {}
 #endif
-
-#define TIMER_ACPI_DECLARE(name, table_id, fn)		\
-	ACPI_DECLARE_PROBE_ENTRY(timer, name, table_id, 0, NULL, 0, fn)
 
 #endif /* _LINUX_CLOCKSOURCE_H */

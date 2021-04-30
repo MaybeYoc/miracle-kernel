@@ -23,6 +23,8 @@ extern void update_wall_time(void);
 
 extern seqlock_t jiffies_lock;
 
+extern int timekeeping_notify(struct clocksource *clock);
+
 #define CS_NAME_LEN	32
 
 #endif

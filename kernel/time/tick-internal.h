@@ -17,6 +17,8 @@ extern ktime_t tick_next_period;
 extern ktime_t tick_period;
 extern int tick_do_timer_cpu __read_mostly;
 
+extern int tick_oneshot_mode_active(void);
+
 extern void tick_check_new_device(struct clock_event_device *dev);
 
 /*
@@ -45,8 +47,6 @@ extern bool tick_check_replacement(struct clock_event_device *curdev,
 extern void tick_install_replacement(struct clock_event_device *dev);
 extern int tick_is_oneshot_available(void);
 extern struct tick_device *tick_get_device(int cpu);
-
-static inline int tick_oneshot_mode_active(void) { return 1; }
 
 static inline void tick_clock_notify(void) { }
 
