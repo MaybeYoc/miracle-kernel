@@ -105,16 +105,6 @@ static void __init mm_init(void)
 	vmalloc_init();
 }
 
-unsigned long ticks = 0;
-/* TODO tmp */
-extern struct clock_event_device *test_clk;
-static void test_evt(struct clock_event_device * evt)
-{
-	jiffies++;
-	ticks = arch_timer_read_counter();
-	evt->set_next_event(1000, evt);
-}
-
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
@@ -162,11 +152,9 @@ asmlinkage __visible void __init start_kernel(void)
 
 	timekeeping_init();
 	time_init();
+	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
 
 	local_irq_enable();
-
-	test_clk->event_handler = test_evt;
-	test_clk->set_next_event(1000, test_clk);
 
 	while(1);
 }

@@ -66,9 +66,6 @@ static int arch_timer_ppi[ARCH_TIMER_MAX_TIMER_PPI];
 
 static struct clock_event_device __percpu *arch_timer_evt;
 
-/* TODO tmp */
-struct clock_event_device *test_clk;
-
 static enum arch_timer_ppi_nr arch_timer_uses_ppi = ARCH_TIMER_VIRT_PPI;
 static bool arch_timer_c3stop;
 static bool arch_timer_mem_use_virtual;
@@ -450,7 +447,6 @@ static int arch_timer_starting_cpu(unsigned int cpu)
 
 	__arch_timer_setup(ARCH_TIMER_TYPE_CP15, clk);
 
-	test_clk = clk;
 	flags = check_ppi_trigger(arch_timer_ppi[arch_timer_uses_ppi]);
 	enable_percpu_irq(arch_timer_ppi[arch_timer_uses_ppi], flags);
 
