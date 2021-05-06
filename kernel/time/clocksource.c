@@ -454,5 +454,8 @@ __setup("clocksource=", boot_override_clocksource);
 
 struct clocksource *clocksource_curr_clock(void)
 {
+	if (!curr_clocksource)
+		return clocksource_default_clock();
+
 	return curr_clocksource;
 }

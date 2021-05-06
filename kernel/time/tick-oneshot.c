@@ -44,14 +44,26 @@ int tick_program_event(ktime_t expires, int force)
 }
 
 /**
+ * tick_switch_to_oneshot - switch to oneshot mode
+ */
+int tick_switch_to_oneshot(void (*handler)(struct clock_event_device *))
+{
+	struct tick_device *td = this_cpu_ptr(&tick_cpu_device);
+	struct clock_event_device *dev = td->evtdev;
+
+	td->mode = TICKDEV_MODE_ONESHOT;
+	dev->event_handler = handler;
+	return 0;
+}
+
+/**
  * tick_init_highres - switch to high resolution mode
  *
  * Called with interrupts disabled.
  */
 int tick_init_highres(void)
 {
-	/* TODO */
-	return 0;
+	return tick_switch_to_oneshot(hrtimer_interrupt);
 }
 
 /**

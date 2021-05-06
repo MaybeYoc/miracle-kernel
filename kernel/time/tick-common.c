@@ -25,6 +25,14 @@ DEFINE_PER_CPU(struct tick_device, tick_cpu_device);
  */
 void tick_check_new_device(struct clock_event_device *newdev)
 {
+	struct tick_device *td;
+	int cpu;
+
+	cpu = smp_processor_id();
+
+	td = &per_cpu(tick_cpu_device, cpu);
+	td->evtdev = newdev;
+	td->mode = TICKDEV_MODE_ONESHOT;
 }
 
 /*
