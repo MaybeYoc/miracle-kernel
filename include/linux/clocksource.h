@@ -213,6 +213,8 @@ extern struct clocksource * __init clocksource_default_clock(void);
 
 extern void clocksource_arch_init(struct clocksource *cs);
 
+extern struct clocksource *clocksource_curr_clock(void);
+
 #define TIMER_OF_DECLARE(name, compat, fn) \
 	OF_DECLARE_1_RET(timer, name, compat, fn)
 

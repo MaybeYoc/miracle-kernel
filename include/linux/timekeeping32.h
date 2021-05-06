@@ -31,15 +31,7 @@ static inline void getrawmonotonic(struct timespec *ts)
 {
 	struct timespec64 ts64;
 
-	ktime_get_raw_ts64(&ts64);
-	*ts = timespec64_to_timespec(ts64);
-}
-
-static inline void getboottime(struct timespec *ts)
-{
-	struct timespec64 ts64;
-
-	getboottime64(&ts64);
+	ktime_get_ts64(&ts64);
 	*ts = timespec64_to_timespec(ts64);
 }
 

@@ -81,12 +81,8 @@ struct tk_read_base {
  */
 struct timekeeper {
 	struct tk_read_base	tkr_mono;
-	ktime_t		offs_mono;
 	ktime_t		offs_real;
-	ktime_t		offs_boot;
 	u64			ktime_sec;
-
-	u8			cs_was_changed_seq;
 };
 
 static inline u64 clocksource_delta(u64 now, u64 last, u64 mask)

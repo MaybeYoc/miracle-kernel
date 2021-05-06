@@ -8,12 +8,13 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/bug.h>
-#include <linux/mutex.h>
 #include <linux/list.h>
+#include <linux/ktime.h>
+#include <linux/string.h>
 #include <linux/clocksource.h>
 
-#include "tick-internal.h"
 #include "timekeeping_internal.h"
+#include "tick-internal.h"
 
 /**
  * clocks_calc_mult_shift - calculate mult/shift factors for scaled math of clocks
@@ -83,7 +84,6 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
  */
 static struct clocksource *curr_clocksource;
 static LIST_HEAD(clocksource_list);
-static DEFINE_MUTEX(clocksource_mutex);
 static char override_name[CS_NAME_LEN];
 
 /**
@@ -108,23 +108,6 @@ void clocksource_resume(void)
 	list_for_each_entry(cs, &clocksource_list, list)
 		if (cs->resume)
 			cs->resume(cs);
-}
-
-/**
- * clocksource_max_adjustment- Returns max adjustment amount
- * @cs:         Pointer to clocksource
- *
- */
-static u32 clocksource_max_adjustment(struct clocksource *cs)
-{
-	u64 ret;
-	/*
-	 * We won't try to correct for more than 11% adjustments (110,000 ppm),
-	 */
-	ret = (u64)cs->mult * 11;
-	do_div(ret, 100);
-
-	return (u32)ret;
 }
 
 /**
@@ -250,7 +233,7 @@ static void __clocksource_select(bool skipcur)
 	}
 
 found:
-	if (curr_clocksource != best && !timekeeping_notify(best)) {
+	if (curr_clocksource != best) {
 		pr_info("Switched to clocksource %s\n", best->name);
 		curr_clocksource = best;
 	}
@@ -275,25 +258,6 @@ static void clocksource_select_fallback(void)
 }
 
 /*
- * clocksource_done_booting - Called near the end of core bootup
- *
- * Hack to avoid lots of clocksource churn at boot time.
- * We use fs_initcall because we want this to start before
- * device_initcall but after subsys_initcall.
- */
-static int __init clocksource_done_booting(void)
-{
-	mutex_lock(&clocksource_mutex);
-	curr_clocksource = clocksource_default_clock();
-
-	clocksource_select();
-	mutex_unlock(&clocksource_mutex);
-
-	return 0;
-}
-fs_initcall(clocksource_done_booting);
-
-/*
  * Enqueue the clocksource sorted by rating
  */
 static void clocksource_enqueue(struct clocksource *cs)
@@ -308,6 +272,23 @@ static void clocksource_enqueue(struct clocksource *cs)
 		entry = &tmp->list;
 	}
 	list_add(&cs->list, entry);
+}
+
+/**
+ * clocksource_max_adjustment- Returns max adjustment amount
+ * @cs:         Pointer to clocksource
+ *
+ */
+static u32 clocksource_max_adjustment(struct clocksource *cs)
+{
+	u64 ret;
+	/*
+	 * We won't try to correct for more than 11% adjustments (110,000 ppm),
+	 */
+	ret = (u64)cs->mult * 11;
+	do_div(ret, 100);
+
+	return (u32)ret;
 }
 
 /**
@@ -400,10 +381,8 @@ int __clocksource_register_scale(struct clocksource *cs, u32 scale, u32 freq)
 	__clocksource_update_freq_scale(cs, scale, freq);
 
 	/* Add clocksource to the clocksource list */
-	mutex_lock(&clocksource_mutex);
 	clocksource_enqueue(cs);
 	clocksource_select();
-	mutex_unlock(&clocksource_mutex);
 
 	return 0;
 }
@@ -422,10 +401,8 @@ static void __clocksource_change_rating(struct clocksource *cs, int rating)
  */
 void clocksource_change_rating(struct clocksource *cs, int rating)
 {
-	mutex_lock(&clocksource_mutex);
 	__clocksource_change_rating(cs, rating);
 	clocksource_select();
-	mutex_unlock(&clocksource_mutex);
 }
 
 /*
@@ -453,10 +430,8 @@ int clocksource_unregister(struct clocksource *cs)
 {
 	int ret = 0;
 
-	mutex_lock(&clocksource_mutex);
 	if (!list_empty(&cs->list))
 		ret = clocksource_unbind(cs);
-	mutex_unlock(&clocksource_mutex);
 
 	return ret;
 }
@@ -470,10 +445,14 @@ int clocksource_unregister(struct clocksource *cs)
  */
 static int __init boot_override_clocksource(char* str)
 {
-	mutex_lock(&clocksource_mutex);
 	if (str)
 		strlcpy(override_name, str, sizeof(override_name));
-	mutex_unlock(&clocksource_mutex);
+
 	return 1;
 }
 __setup("clocksource=", boot_override_clocksource);
+
+struct clocksource *clocksource_curr_clock(void)
+{
+	return curr_clocksource;
+}

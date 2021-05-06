@@ -150,8 +150,8 @@ asmlinkage __visible void __init start_kernel(void)
 	early_irq_init();
 	init_IRQ();
 
-	timekeeping_init();
 	time_init();
+	timekeeping_init();
 	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
 
 	local_irq_enable();

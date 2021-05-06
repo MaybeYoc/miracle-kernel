@@ -67,7 +67,7 @@ DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
 		{
 			.index = HRTIMER_BASE_BOOTTIME,
 			.clockid = CLOCK_BOOTTIME,
-			.get_time = &ktime_get_boottime,
+			//.get_time = &ktime_get_boottime,
 		},
 		{
 			.index = HRTIMER_BASE_MONOTONIC_SOFT,
@@ -82,7 +82,7 @@ DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
 		{
 			.index = HRTIMER_BASE_BOOTTIME_SOFT,
 			.clockid = CLOCK_BOOTTIME,
-			.get_time = &ktime_get_boottime,
+			//.get_time = &ktime_get_boottime,
 		},
 	}
 };
