@@ -28,25 +28,10 @@ struct hrtimer_cpu_base;
  *
  * HRTIMER_MODE_ABS		- Time value is absolute
  * HRTIMER_MODE_REL		- Time value is relative to now
- * HRTIMER_MODE_PINNED		- Timer is bound to CPU (is only considered
- *				  when starting the timer)
- * HRTIMER_MODE_SOFT		- Timer callback function will be executed in
- *				  soft irq context
  */
 enum hrtimer_mode {
 	HRTIMER_MODE_ABS	= 0x00,
 	HRTIMER_MODE_REL	= 0x01,
-	HRTIMER_MODE_PINNED	= 0x02,
-	HRTIMER_MODE_SOFT	= 0x04,
-
-	HRTIMER_MODE_ABS_PINNED = HRTIMER_MODE_ABS | HRTIMER_MODE_PINNED,
-	HRTIMER_MODE_REL_PINNED = HRTIMER_MODE_REL | HRTIMER_MODE_PINNED,
-
-	HRTIMER_MODE_ABS_SOFT	= HRTIMER_MODE_ABS | HRTIMER_MODE_SOFT,
-	HRTIMER_MODE_REL_SOFT	= HRTIMER_MODE_REL | HRTIMER_MODE_SOFT,
-
-	HRTIMER_MODE_ABS_PINNED_SOFT = HRTIMER_MODE_ABS_PINNED | HRTIMER_MODE_SOFT,
-	HRTIMER_MODE_REL_PINNED_SOFT = HRTIMER_MODE_REL_PINNED | HRTIMER_MODE_SOFT,
 };
 
 /*
@@ -110,20 +95,6 @@ struct hrtimer {
 	enum hrtimer_restart		(*function)(struct hrtimer *);
 	struct hrtimer_clock_base	*base;
 	u8				state;
-	u8				is_rel;
-	u8				is_soft;
-};
-
-/**
- * struct hrtimer_sleeper - simple sleeper structure
- * @timer:	embedded timer structure
- * @task:	task to wake up
- *
- * task is set to NULL, when the timer expires.
- */
-struct hrtimer_sleeper {
-	struct hrtimer timer;
-	struct task_struct *task;
 };
 
 #ifdef CONFIG_64BIT
@@ -158,12 +129,6 @@ struct hrtimer_clock_base {
 enum  hrtimer_base_type {
 	HRTIMER_BASE_MONOTONIC,
 	HRTIMER_BASE_REALTIME,
-	HRTIMER_BASE_BOOTTIME,
-	HRTIMER_BASE_TAI,
-	HRTIMER_BASE_MONOTONIC_SOFT,
-	HRTIMER_BASE_REALTIME_SOFT,
-	HRTIMER_BASE_BOOTTIME_SOFT,
-	HRTIMER_BASE_TAI_SOFT,
 	HRTIMER_MAX_CLOCK_BASES,
 };
 
@@ -200,18 +165,14 @@ struct hrtimer_cpu_base {
 	unsigned int			cpu;
 	unsigned int			active_bases;
 	unsigned int			clock_was_set_seq;
-	unsigned int			hres_active		: 1,
-					in_hrtirq		: 1,
-					hang_detected		: 1,
-					softirq_activated       : 1;
+	unsigned int			in_hrtirq		: 1,
+					hang_detected		: 1;
 	unsigned int			nr_events;
 	unsigned short			nr_retries;
 	unsigned short			nr_hangs;
 	unsigned int			max_hang_time;
 	ktime_t				expires_next;
 	struct hrtimer			*next_timer;
-	ktime_t				softirq_expires_next;
-	struct hrtimer			*softirq_next_timer;
 	struct hrtimer_clock_base	clock_base[HRTIMER_MAX_CLOCK_BASES];
 } ____cacheline_aligned;
 
@@ -286,11 +247,6 @@ static inline ktime_t hrtimer_cb_get_time(struct hrtimer *timer)
 	return timer->base->get_time();
 }
 
-static inline int hrtimer_is_hres_active(struct hrtimer *timer)
-{
-	return timer->base->cpu_base->hres_active;
-}
-
 struct clock_event_device;
 
 extern void hrtimer_interrupt(struct clock_event_device *dev);
@@ -315,12 +271,6 @@ __hrtimer_expires_remaining_adjusted(const struct hrtimer *timer, ktime_t now)
 {
 	ktime_t rem = ktime_sub(timer->node.expires, now);
 
-	/*
-	 * Adjust relative timers for the extra we added in
-	 * hrtimer_start_range_ns() to prevent short timeouts.
-	 */
-	if (IS_ENABLED(CONFIG_TIME_LOW_RES) && timer->is_rel)
-		rem -= hrtimer_resolution;
 	return rem;
 }
 
@@ -445,16 +395,6 @@ static inline u64 hrtimer_forward_now(struct hrtimer *timer,
 {
 	return hrtimer_forward(timer, timer->base->get_time(), interval);
 }
-
-/* Precise sleep: */
-
-//extern int nanosleep_copyout(struct restart_block *, struct timespec64 *);
-extern long hrtimer_nanosleep(const struct timespec64 *rqtp,
-			      const enum hrtimer_mode mode,
-			      const clockid_t clockid);
-
-extern void hrtimer_init_sleeper(struct hrtimer_sleeper *sl,
-				 struct task_struct *tsk);
 
 extern int schedule_hrtimeout_range(ktime_t *expires, u64 delta,
 						const enum hrtimer_mode mode);
