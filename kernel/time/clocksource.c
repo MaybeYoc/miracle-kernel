@@ -382,6 +382,9 @@ int __clocksource_register_scale(struct clocksource *cs, u32 scale, u32 freq)
 
 	/* Add clocksource to the clocksource list */
 	clocksource_enqueue(cs);
+	if (cs->flags & CLOCK_SOURCE_IS_CONTINUOUS)
+		cs->flags |= CLOCK_SOURCE_VALID_FOR_HRES;
+
 	clocksource_select();
 
 	return 0;
