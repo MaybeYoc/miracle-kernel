@@ -31,6 +31,7 @@
 #include <linux/clockchips.h>
 #include <clocksource/arm_arch_timer.h>
 #include <linux/timekeeping.h>
+#include <linux/sched_clock.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -104,7 +105,7 @@ static void __init mm_init(void)
 	kmem_cache_init();
 	vmalloc_init();
 }
-
+extern unsigned long long notrace sched_clock(void);
 extern int tick_init_highres(void);
 asmlinkage __visible void __init start_kernel(void)
 {
@@ -155,6 +156,7 @@ asmlinkage __visible void __init start_kernel(void)
 	timekeeping_init();
 	hrtimers_init();
 	tick_init_highres();
+	generic_sched_clock_init();
 	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
 
 	local_irq_enable();
