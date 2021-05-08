@@ -198,6 +198,13 @@ time64_t ktime_get_real_seconds(void)
 	return tk->ktime_sec + tk->offs_real;
 }
 
+u64 ktime_get_cycles(void)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+
+	return tk_clock_read(&tk->tkr_mono);
+}
+
 /**
  * tk_setup_internals - Set up internals to use clocksource clock.
  *

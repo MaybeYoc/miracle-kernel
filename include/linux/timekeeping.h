@@ -30,6 +30,7 @@ extern u32 ktime_get_resolution_ns(void);
 extern ktime_t ktime_get_real(void);
 extern ktime_t ktime_get_coarse_real(void);
 
+extern u64 ktime_get_cycles(void);
 
 static inline u64 ktime_get_ns(void)
 {
