@@ -14,7 +14,7 @@ obj-$(CONFIG_CRC32)	+= crc32.o
 
 lib-y := ctype.o string.o vsprintf.o int_sqrt.o cmdline.o	\
 		rbtree.o radix-tree.o xarray.o idr.o irq_regs.o plist.o	\
-		timerqueue.o
+		timerqueue.o random.o
 
 lib-$(CONFIG_SMP) += cpumask.o
 

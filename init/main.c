@@ -33,6 +33,7 @@
 #include <linux/timekeeping.h>
 #include <linux/sched_clock.h>
 #include <linux/delay.h>
+#include <linux/random.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>
