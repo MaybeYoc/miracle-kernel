@@ -105,6 +105,7 @@ static void __init mm_init(void)
 	vmalloc_init();
 }
 
+extern int tick_init_highres(void);
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
@@ -152,6 +153,8 @@ asmlinkage __visible void __init start_kernel(void)
 
 	time_init();
 	timekeeping_init();
+	hrtimers_init();
+	tick_init_highres();
 	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
 
 	local_irq_enable();
