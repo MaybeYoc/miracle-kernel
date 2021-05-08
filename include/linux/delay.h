@@ -3,32 +3,42 @@
 #ifndef _LINUX_DELAY_H
 #define _LINUX_DELAY_H
 
-/*
- * Copyright (C) 1993 Linus Torvalds
- *
- * Delay routines, using a pre-computed "loops_per_jiffy" value.
- *
- * Please note that ndelay(), udelay() and mdelay() may return early for
- * several reasons:
- *  1. computed loops_per_jiffy too low (due to the time taken to
- *     execute the timer interrupt.)
- *  2. cache behaviour affecting the time it takes to execute the
- *     loop function.
- *  3. CPU clock rate changes.
- *
- * Please see this thread:
- *   http://lists.openwall.net/linux-kernel/2011/01/09/56
- */
-
 #include <linux/kernel.h>
+#include <linux/time.h>
 
-/* TODO */
+#include <asm/delay.h>
+
+
+#ifndef delay
+static inline void delay(unsigned long cycles)
+{
+	__delay(cycles);
+}
+#define delay(x) delay(x)
+#endif
+
+#ifndef ndelay
+static inline void ndelay(unsigned long nsecs)
+{
+	__ndelay(nsecs);
+}
+#define ndelay(x) ndelay(x)
+#endif
+
+#ifndef udelay
+static inline void udelay(unsigned long usecs)
+{
+	__ndelay(usecs * NSEC_PER_USEC);
+}
+#define udelay(x) udelay(x)
+#endif
+
 #ifndef mdelay
-#define mdelay(n) do \
-{				\
-	for (int i = 0; i < 100000; i++)	\
-		nop();				\
-} while (0)
+static inline void mdelay(unsigned long msecs)
+{
+	__ndelay(msecs * NSEC_PER_MSEC);
+}
+#define mdelay(x) mdelay(x)
 #endif
 
 #endif /* defined(_LINUX_DELAY_H) */

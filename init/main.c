@@ -32,6 +32,7 @@
 #include <clocksource/arm_arch_timer.h>
 #include <linux/timekeeping.h>
 #include <linux/sched_clock.h>
+#include <linux/delay.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>

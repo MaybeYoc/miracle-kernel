@@ -1,4 +1,4 @@
-# include/asm-generic/test.h => asm/test.h
+generic-y += delay.h
 generic-y += div64.h
 generic-y += early_ioremap.h
 generic-y += percpu.h
