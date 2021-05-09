@@ -6,6 +6,7 @@
  * Copyright (c) 2012 Michael Walle
  * Michael Walle <michael@walle.cc>
  */
+#include <linux/compiler.h>
 
 static unsigned long y = 1;
 
@@ -27,12 +28,15 @@ unsigned long random_range(unsigned long min, unsigned long max)
 {
 	unsigned long temp;
 
-	if (min >= max)
+	if (unlikely(min > max))
 		return 0;
 
-	temp = max - min;
+	if (unlikely(min == max))
+		return min;
 
-	return (random() % (min + 1)) + (random() % (temp + 1));
+	temp = max - min + 1;
+
+	return min + (random() % temp);
 }
 
 void srand(unsigned long seed)
