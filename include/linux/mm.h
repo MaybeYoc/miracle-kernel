@@ -202,6 +202,7 @@ static inline bool is_vmalloc_addr(const void *x)
 #endif
 }
 
+void kvfree(const void *addr);
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_MM_H */

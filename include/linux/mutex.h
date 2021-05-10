@@ -61,6 +61,8 @@ struct mutex {
 
 #define mutex_lock(lock)
 
+#define mutex_trylock(lock) (1)
+
 #define mutex_unlock(lock)
 
 #endif /* __LINUX_MUTEX_H */

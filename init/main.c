@@ -34,6 +34,7 @@
 #include <linux/sched_clock.h>
 #include <linux/delay.h>
 #include <linux/random.h>
+#include <linux/vmalloc.h>
 
 #include <asm/memory.h>
 #include <asm/sections.h>

@@ -5,6 +5,7 @@
 #include <linux/err.h>
 #include <linux/sched.h>
 #include <linux/uaccess.h>
+#include <linux/vmalloc.h>
 
 #include <asm/sections.h>
 
@@ -204,4 +205,12 @@ void *memdup_user_nul(const void __user *src, size_t len)
 	p[len] = '\0';
 
 	return p;
+}
+
+void kvfree(const void *addr)
+{
+	if (is_vmalloc_addr(addr))
+		vfree(addr);
+	else
+		kfree(addr);
 }
